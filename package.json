@@ -1,0 +1,34 @@
+{
+  "name": "@comraide/node",
+  "version": "0.1.0",
+  "description": "Official Node.js client foundation for the Comraide API",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check src/transport.js && node --check src/errors.js",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "comraide",
+    "notifications",
+    "push-notifications"
+  ],
+  "license": "MIT",
+  "sideEffects": false
+}
