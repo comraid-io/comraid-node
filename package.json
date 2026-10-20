@@ -21,7 +21,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/transport.js && node --check src/errors.js",
+    "check": "node --check src/index.js && node --check src/transport.js && node --check src/errors.js && node --check src/push.js",
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [
