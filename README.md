@@ -1,6 +1,6 @@
 # `@comraide/node`
 
-Node.js client for the ComRaid API. Push Channel methods are thin clients over REST: Single send and Broadcast create Messages; Multi-send creates a Campaign. The SDK sets `channel: push` and nests push Content under `content.push`.
+Node.js client for the ComRaid API. Push Channel methods are thin clients over REST: **Single send** and **Broadcast** create **Messages** (`/messages`); on the push Channel those are **Notifications**. **Multi-send** creates a **Campaign** (`/campaigns`). Contacts are addressed by `external_user_id` via Endpoints / Subscriptions. The SDK sets `channel: push` and nests push Content under `content.push`.
 
 ```js
 import { Comraide } from "@comraide/node";
