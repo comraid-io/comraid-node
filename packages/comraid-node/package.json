@@ -1,0 +1,29 @@
+{
+  "name": "@comraid/node",
+  "version": "0.1.0",
+  "description": "Official Node.js client foundation for the ComRaid API",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "comraid",
+    "notifications",
+    "push-notifications"
+  ],
+  "license": "MIT",
+  "sideEffects": false
+}
