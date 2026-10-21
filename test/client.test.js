@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Comraide, ComraideError, FetchTransport } from "../src/index.js";
+import { ComRaid, ComRaidError, FetchTransport } from "../src/index.js";
 
 test("rejects paths that would send credentials to another origin", async () => {
 	let calls = 0;
@@ -38,7 +38,7 @@ test("uses authentication, query values, and JSON bodies", async () => {
 			headers: { "content-type": "application/json" },
 		});
 	};
-	const client = new Comraide({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 0 });
+	const client = new ComRaid({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 0 });
 	const result = await client.request({ method: "POST", path: "/contract-defined-path", query: { dryRun: true }, body: { hello: "world" } });
 
 	assert.deepEqual(result, { accepted: true });
@@ -69,16 +69,16 @@ test("does not retry unsafe mutations without an idempotency key", async () => {
 			headers: { "content-type": "application/json", "x-request-id": "req-1" },
 		});
 	};
-	const client = new Comraide({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 3 });
+	const client = new ComRaid({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 3 });
 	await assert.rejects(
 		client.request({ method: "POST", path: "/send", body: {} }),
-		error => error instanceof ComraideError && error.code === "UNAVAILABLE" && error.requestId === "req-1",
+		error => error instanceof ComRaidError && error.code === "UNAVAILABLE" && error.requestId === "req-1",
 	);
 	assert.equal(attempts, 1);
 });
 
 test("supports an injected transport without API configuration", async () => {
-	const client = new Comraide({ transport: { request: async options => ({ path: options.path }) } });
+	const client = new ComRaid({ transport: { request: async options => ({ path: options.path }) } });
 	assert.deepEqual(await client.request({ path: "/custom" }), { path: "/custom" });
 	assert.match(client.createIdempotencyKey(), /^[0-9a-f-]{36}$/);
 });
