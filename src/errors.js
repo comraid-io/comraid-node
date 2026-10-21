@@ -22,7 +22,3 @@ export class ComRaidTimeoutError extends ComRaidError {
 	}
 }
 
-/** @deprecated Use ComRaidError */
-export const ComraideError = ComRaidError;
-/** @deprecated Use ComRaidTimeoutError */
-export const ComraideTimeoutError = ComRaidTimeoutError;
