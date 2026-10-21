@@ -1,4 +1,4 @@
-import { ComraideError, ComraideTimeoutError } from "./errors.js";
+import { ComRaidError, ComRaidTimeoutError } from "./errors.js";
 
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
@@ -46,12 +46,12 @@ export class FetchTransport {
 
 	async #attempt(options) {
 		const timeoutController = new AbortController();
-		const timeout = setTimeout(() => timeoutController.abort(new ComraideTimeoutError(this.timeoutMs)), this.timeoutMs);
+		const timeout = setTimeout(() => timeoutController.abort(new ComRaidTimeoutError(this.timeoutMs)), this.timeoutMs);
 		const signal = combineSignals(options.signal, timeoutController.signal);
 		const headers = new Headers(options.headers);
 		headers.set("authorization", `Bearer ${this.apiKey}`);
 		headers.set("accept", "application/json");
-		headers.set("user-agent", "@comraide/node/0.1.0");
+		headers.set("user-agent", "@comraid/node/0.1.0");
 		if (options.idempotencyKey) headers.set("idempotency-key", options.idempotencyKey);
 
 		let body;
@@ -74,14 +74,14 @@ export class FetchTransport {
 			} catch (error) {
 				if (!(error instanceof SyntaxError)) throw error;
 				if (response.ok) {
-					throw new ComraideError("API returned invalid JSON", { code: "INVALID_RESPONSE", cause: error });
+					throw new ComRaidError("API returned invalid JSON", { code: "INVALID_RESPONSE", cause: error });
 				}
 			}
 			return { response, value };
 		} catch (error) {
-			if (timeoutController.signal.aborted) throw new ComraideTimeoutError(this.timeoutMs, { cause: error });
+			if (timeoutController.signal.aborted) throw new ComRaidTimeoutError(this.timeoutMs, { cause: error });
 			if (options.signal?.aborted) {
-				throw new ComraideError("Comraide request was aborted", {
+				throw new ComRaidError("ComRaid request was aborted", {
 					code: "REQUEST_ABORTED",
 					retryable: false,
 					cause: error,
@@ -120,9 +120,9 @@ async function parseBody(response) {
 
 function responseError(response, details) {
 	const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id") ?? undefined;
-	const message = details?.message ?? details?.error?.message ?? `Comraide API request failed with status ${response.status}`;
+	const message = details?.message ?? details?.error?.message ?? `ComRaid API request failed with status ${response.status}`;
 	const code = details?.code ?? details?.error?.code ?? "API_ERROR";
-	return new ComraideError(message, {
+	return new ComRaidError(message, {
 		code,
 		status: response.status,
 		requestId,
@@ -132,9 +132,9 @@ function responseError(response, details) {
 }
 
 function normalizeError(error, timeoutMs) {
-	if (error instanceof ComraideError) return error;
-	if (error?.name === "AbortError") return new ComraideTimeoutError(timeoutMs, { cause: error });
-	return new ComraideError(error instanceof Error ? error.message : "Network request failed", {
+	if (error instanceof ComRaidError) return error;
+	if (error?.name === "AbortError") return new ComRaidTimeoutError(timeoutMs, { cause: error });
+	return new ComRaidError(error instanceof Error ? error.message : "Network request failed", {
 		code: "NETWORK_ERROR",
 		retryable: true,
 		cause: error,
