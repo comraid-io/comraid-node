@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Comraide } from "../src/index.js";
+import { ComRaid } from "../src/index.js";
 
 function clientWithCapture() {
 	const calls = [];
-	const client = new Comraide({
+	const client = new ComRaid({
 		transport: {
 			request: async (options) => {
 				calls.push(options);

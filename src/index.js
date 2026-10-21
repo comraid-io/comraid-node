@@ -2,10 +2,15 @@ import { randomUUID } from "node:crypto";
 import { createPushApi } from "./push.js";
 import { FetchTransport } from "./transport.js";
 
-export { ComraideError, ComraideTimeoutError } from "./errors.js";
+export {
+	ComRaidError,
+	ComRaidTimeoutError,
+	ComraideError,
+	ComraideTimeoutError,
+} from "./errors.js";
 export { FetchTransport } from "./transport.js";
 
-export class Comraide {
+export class ComRaid {
 	constructor(options) {
 		this.transport = options.transport ?? new FetchTransport(options);
 		this.push = createPushApi(this);
@@ -19,3 +24,6 @@ export class Comraide {
 		return randomUUID();
 	}
 }
+
+/** @deprecated Use ComRaid */
+export const Comraide = ComRaid;

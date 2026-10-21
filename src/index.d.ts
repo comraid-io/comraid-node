@@ -23,11 +23,11 @@ export interface FetchTransportOptions {
   maxRetries?: number;
 }
 
-export type ComraideOptions =
+export type ComRaidOptions =
   | (FetchTransportOptions & { transport?: never })
   | { transport: Transport; apiKey?: never; baseUrl?: never; fetch?: never; timeoutMs?: never; maxRetries?: never };
 
-export class ComraideError extends Error {
+export class ComRaidError extends Error {
   code?: string;
   status?: number;
   requestId?: string;
@@ -35,7 +35,7 @@ export class ComraideError extends Error {
   details?: unknown;
 }
 
-export class ComraideTimeoutError extends ComraideError {
+export class ComRaidTimeoutError extends ComRaidError {
   timeoutMs: number;
 }
 
@@ -173,9 +173,18 @@ export interface PushApi {
   multiSend(input: PushMultiSendInput): Promise<CampaignAccepted>;
 }
 
-export class Comraide {
+export class ComRaid {
   readonly push: PushApi;
-  constructor(options: ComraideOptions);
+  constructor(options: ComRaidOptions);
   request<TResponse = unknown, TBody = unknown>(options: RequestOptions<TBody>): Promise<TResponse>;
   createIdempotencyKey(): string;
 }
+
+/** @deprecated Use ComRaidOptions */
+export type ComraideOptions = ComRaidOptions;
+/** @deprecated Use ComRaid */
+export const Comraide: typeof ComRaid;
+/** @deprecated Use ComRaidError */
+export const ComraideError: typeof ComRaidError;
+/** @deprecated Use ComRaidTimeoutError */
+export const ComraideTimeoutError: typeof ComRaidTimeoutError;
