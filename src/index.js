@@ -5,8 +5,6 @@ import { FetchTransport } from "./transport.js";
 export {
 	ComRaidError,
 	ComRaidTimeoutError,
-	ComraideError,
-	ComraideTimeoutError,
 } from "./errors.js";
 export { FetchTransport } from "./transport.js";
 
@@ -25,5 +23,3 @@ export class ComRaid {
 	}
 }
 
-/** @deprecated Use ComRaid */
-export const Comraide = ComRaid;

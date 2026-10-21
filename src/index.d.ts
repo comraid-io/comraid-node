@@ -179,12 +179,3 @@ export class ComRaid {
   request<TResponse = unknown, TBody = unknown>(options: RequestOptions<TBody>): Promise<TResponse>;
   createIdempotencyKey(): string;
 }
-
-/** @deprecated Use ComRaidOptions */
-export type ComraideOptions = ComRaidOptions;
-/** @deprecated Use ComRaid */
-export const Comraide: typeof ComRaid;
-/** @deprecated Use ComRaidError */
-export const ComraideError: typeof ComRaidError;
-/** @deprecated Use ComRaidTimeoutError */
-export const ComraideTimeoutError: typeof ComRaidTimeoutError;
