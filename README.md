@@ -30,11 +30,31 @@ await comraid.push.multiSend({
     { external_user_id: "user_b", content: { title: "Hi B", body: "Welcome B" } },
   ],
 });
+
+// Contacts + attributes
+await comraid.contacts.create({
+  external_user_id: "user_a",
+  name: "Ada",
+  attributes: { plan: "pro" },
+});
+await comraid.contacts.upsert("user_a", { locale: "en-US" });
+await comraid.attributes.upsert("user_a", { attributes: { seats: 3 } });
+
+// Message status / cancel
+const detail = await comraid.messages.get(messageId);
+await comraid.messages.cancel(messageId);
+
+// Segments
+const { segments } = await comraid.segments.list();
+const created = await comraid.segments.create({
+  name: "Pro users",
+  rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] },
+});
+await comraid.segments.archive(created.segment_id);
 ```
 
 Further Channels can land as additive namespaces (for example `comraid.whatsapp.send`) without changing push.
 
 The client also exposes a generic `request()` with bearer authentication, configurable fetch transport, timeouts, cancellation, bounded retries, `Retry-After` handling, idempotency keys, structured API errors, query encoding, and JSON parsing. Mutating requests are retried only when an idempotency key is present.
 
-Push Content and response types in `src/index.d.ts` are derived from the public OpenAPI document (`docs/public/openapi.yaml`).
-
+Types in `src/index.d.ts` track the public OpenAPI document (`server/src/openapi/openapi.yaml`). `test/openapi-types.test.js` asserts the schema and `operationId` names the SDK claims still exist (set `COMRAID_OPENAPI` if the sibling server checkout is not discoverable).
