@@ -38,4 +38,3 @@ The client also exposes a generic `request()` with bearer authentication, config
 
 Push Content and response types in `src/index.d.ts` are derived from the public OpenAPI document (`docs/public/openapi.yaml`).
 
-A deprecated `@comraide/node` alias package under `packages/comraide-node` re-exports the same API until contract.
