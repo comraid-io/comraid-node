@@ -1,7 +1,7 @@
 {
-  "name": "@comraide/node",
+  "name": "@comraid/node",
   "version": "0.1.0",
-  "description": "Official Node.js client foundation for the Comraide API",
+  "description": "Official Node.js client foundation for the ComRaid API",
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
@@ -21,11 +21,11 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/transport.js && node --check src/errors.js && node --check src/push.js",
+    "check": "node --check src/index.js && node --check src/transport.js && node --check src/errors.js && node --check src/push.js && node --check src/messages.js && node --check src/contacts.js && node --check src/attributes.js && node --check src/segments.js && node --check src/request-options.js",
     "pack:check": "pnpm pack --dry-run"
   },
   "keywords": [
-    "comraide",
+    "comraid",
     "notifications",
     "push-notifications"
   ],

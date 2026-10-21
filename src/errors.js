@@ -1,7 +1,7 @@
-export class ComraideError extends Error {
+export class ComRaidError extends Error {
 	constructor(message, options = {}) {
 		super(message, { cause: options.cause });
-		this.name = "ComraideError";
+		this.name = "ComRaidError";
 		this.code = options.code;
 		this.status = options.status;
 		this.requestId = options.requestId;
@@ -10,14 +10,15 @@ export class ComraideError extends Error {
 	}
 }
 
-export class ComraideTimeoutError extends ComraideError {
+export class ComRaidTimeoutError extends ComRaidError {
 	constructor(timeoutMs, options = {}) {
-		super(`Comraide request timed out after ${timeoutMs}ms`, {
+		super(`ComRaid request timed out after ${timeoutMs}ms`, {
 			...options,
 			code: "TIMEOUT",
 			retryable: true,
 		});
-		this.name = "ComraideTimeoutError";
+		this.name = "ComRaidTimeoutError";
 		this.timeoutMs = timeoutMs;
 	}
 }
+

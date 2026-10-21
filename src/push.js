@@ -1,3 +1,5 @@
+import { requestOptions } from "./request-options.js";
+
 const CHANNEL = "push";
 
 /**
@@ -65,11 +67,4 @@ function wrapRecipient(recipient) {
 		...rest,
 		content: { push: content },
 	};
-}
-
-function requestOptions({ method, path, body, idempotencyKey, signal }) {
-	const options = { method, path, body };
-	if (idempotencyKey !== undefined) options.idempotencyKey = idempotencyKey;
-	if (signal !== undefined) options.signal = signal;
-	return options;
 }
