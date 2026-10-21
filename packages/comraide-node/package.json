@@ -1,7 +1,7 @@
 {
-  "name": "@comraid/node",
+  "name": "@comraide/node",
   "version": "0.1.0",
-  "description": "Official Node.js client foundation for the ComRaid API",
+  "description": "Deprecated alias for @comraid/node",
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
@@ -21,8 +21,8 @@
   },
   "keywords": [
     "comraid",
-    "notifications",
-    "push-notifications"
+    "comraide",
+    "notifications"
   ],
   "license": "MIT",
   "sideEffects": false

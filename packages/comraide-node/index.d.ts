@@ -1,5 +1,8 @@
 export {
+	ComRaid,
 	Comraide,
+	ComRaidError,
+	ComRaidTimeoutError,
 	ComraideError,
 	ComraideTimeoutError,
 	FetchTransport,
