@@ -17,6 +17,21 @@ await comraid.push.send({
   idempotencyKey: comraid.createIdempotencyKey(),
 });
 
+// Rich push fields (OpenAPI `content.push`) — optional; nested under content.push as-is.
+// `deep_link` is delivered to devices as `cr_deep_link` in FCM/APNs data.
+await comraid.push.send({
+  to: { external_user_ids: ["user_a"] },
+  content: {
+    title: "Order shipped",
+    body: "Your package is on the way",
+    deep_link: "myapp://orders/42",
+    sound: "shipping",
+    subtitle: "Tracking update",
+    badge: 3,
+    thread_id: "orders",
+  },
+});
+
 // Broadcast — Segment, ad-hoc rules, or everyone
 await comraid.push.broadcast({
   targeting: { everyone: true },

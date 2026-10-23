@@ -51,6 +51,30 @@ test("push.send always sets channel to push", async () => {
 	assert.equal(calls[0].body.channel, "push");
 });
 
+test("push.send and push.multiSend pass through rich OpenAPI push fields", async () => {
+	const { client, calls } = clientWithCapture();
+	const rich = {
+		title: "Order shipped",
+		body: "Your package is on the way",
+		deep_link: "myapp://orders/42",
+		sound: "shipping",
+		subtitle: "Tracking update",
+		badge: 3,
+		thread_id: "orders",
+	};
+
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		content: rich,
+	});
+	assert.deepEqual(calls[0].body.content.push, rich);
+
+	await client.push.multiSend({
+		recipients: [{ external_user_id: "user_a", content: rich }],
+	});
+	assert.deepEqual(calls[1].body.recipients[0].content.push, rich);
+});
+
 test("push.send and push.broadcast reject the wrong audience shape", () => {
 	const { client, calls } = clientWithCapture();
 	assert.throws(
