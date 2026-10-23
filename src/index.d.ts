@@ -54,11 +54,22 @@ export interface PushAction {
 /**
  * Push Content fields the push Channel supports (OpenAPI `content.push`).
  * Callers pass these flat; the SDK nests them under `content.push`.
+ * Rich fields map 1:1; `deep_link` is delivered to devices as `cr_deep_link`.
  */
 export interface PushContent {
   title: string;
   body: string;
   image_url?: string | null;
+  /** First-class deep link / launch URL → device payload `cr_deep_link`. */
+  deep_link?: string | null;
+  /** Custom notification sound resource name; APNs uses `default` when omitted. */
+  sound?: string | null;
+  /** iOS alert subtitle (ignored on Android system notifications). */
+  subtitle?: string | null;
+  /** iOS badge; Android hybrid notifications map to notification count when supported. */
+  badge?: number | null;
+  /** iOS thread-id / Android notification tag. */
+  thread_id?: string | null;
   platforms?: Array<"android" | "ios">;
   actions?: PushAction[];
 }
