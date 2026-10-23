@@ -9,7 +9,7 @@ const CHANNEL = "push";
 export function createPushApi(client) {
 	return {
 		send(input) {
-			assertAudience(input, "to", "push.send requires to.external_user_ids");
+			assertAudience(input, "to", "push.send requires to (external_user_ids or endpoint_ids)");
 			return createMessage(client, input);
 		},
 		broadcast(input) {
