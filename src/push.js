@@ -9,11 +9,11 @@ const CHANNEL = "push";
 export function createPushApi(client) {
 	return {
 		send(input) {
-			assertAudience(input, "to", "push.send requires to (external_user_ids or endpoint_ids)");
+			assertSendTarget(input, "to", "push.send requires to (external_user_ids or endpoint_ids)");
 			return createMessage(client, input);
 		},
 		broadcast(input) {
-			assertAudience(input, "targeting", "push.broadcast requires targeting");
+			assertSendTarget(input, "targeting", "push.broadcast requires targeting");
 			return createMessage(client, input);
 		},
 		multiSend(input) {
@@ -38,7 +38,7 @@ export function createPushApi(client) {
 	};
 }
 
-function assertAudience(input, key, message) {
+function assertSendTarget(input, key, message) {
 	if (input?.[key] == null || typeof input[key] !== "object") {
 		throw new TypeError(message);
 	}

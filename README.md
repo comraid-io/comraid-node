@@ -191,7 +191,7 @@ Helpers set `channel: push` and nest caller Content under `content.push`. Full H
 | `input.priority` | `"high" \| "normal"` | no | Delivery priority. |
 | `input.ttl` | `number` | no | Time-to-live in seconds from send time (or from `send_at` when scheduled). |
 | `input.collapse_key` | `string` | no | Collapse key so later sends with the same key replace earlier ones on device. |
-| `input.data` | `Record<string, unknown>` | no | Custom data payload. |
+| `input.data` | `Record<string, unknown>` | no | Custom data object. |
 | `input.send_at` | `string \| null` | no | Absolute UTC send time (ISO 8601). Mutually exclusive with `send_at_local`. |
 | `input.send_at_local` | `string` | no | Local wall-clock datetime without timezone. Mutually exclusive with `send_at`. |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
