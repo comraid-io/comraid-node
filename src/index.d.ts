@@ -211,28 +211,41 @@ export interface RequestSignalOptions {
   signal?: AbortSignal;
 }
 
-export interface PushSendInput {
-  to: { external_user_ids: string[] };
-  content: PushContent;
+/**
+ * Single-send targeting (OpenAPI `MessageCreate.to`).
+ * Exactly one of `external_user_ids` or `endpoint_ids`.
+ */
+export type PushSendTo =
+  | { external_user_ids: string[]; endpoint_ids?: never }
+  | { endpoint_ids: string[]; external_user_ids?: never };
+
+/** Shared Message create fields for push Single send / Broadcast. */
+export interface PushMessageCreateFields {
   category?: string;
   type?: string;
   name?: string;
   priority?: "high" | "normal";
+  /** Time-to-live in seconds from send time (or from `send_at` when scheduled). */
+  ttl?: number;
+  /** Collapse key so later sends with the same key replace earlier ones on device. */
+  collapse_key?: string;
   data?: Record<string, unknown>;
+  /** Absolute UTC send time. Mutually exclusive with `send_at_local`. */
   send_at?: string | null;
+  /** Local wall-clock datetime without timezone. Mutually exclusive with `send_at`. */
+  send_at_local?: string;
+}
+
+export interface PushSendInput extends PushMessageCreateFields {
+  to: PushSendTo;
+  content: PushContent;
   idempotencyKey?: string;
   signal?: AbortSignal;
 }
 
-export interface PushBroadcastInput {
+export interface PushBroadcastInput extends PushMessageCreateFields {
   targeting: TargetingSpec;
   content: PushContent;
-  category?: string;
-  type?: string;
-  name?: string;
-  priority?: "high" | "normal";
-  data?: Record<string, unknown>;
-  send_at?: string | null;
   idempotencyKey?: string;
   signal?: AbortSignal;
 }
@@ -244,6 +257,9 @@ export interface PushMultiSendRecipient {
   type?: string;
   name?: string;
   priority?: "high" | "normal";
+  /** Per-recipient TTL in seconds (OpenAPI CampaignCreate). */
+  ttl?: number;
+  collapse_key?: string;
   data?: Record<string, unknown>;
 }
 
@@ -255,7 +271,7 @@ export interface PushMultiSendInput {
 }
 
 export interface PushApi {
-  /** Single send → `POST /messages` with `to.external_user_ids`. */
+  /** Single send → `POST /messages` with `to.external_user_ids` or `to.endpoint_ids`. */
   send(input: PushSendInput): Promise<MessageAccepted>;
   /** Broadcast → `POST /messages` with `targeting`. */
   broadcast(input: PushBroadcastInput): Promise<MessageAccepted>;

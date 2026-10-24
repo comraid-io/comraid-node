@@ -32,6 +32,15 @@ await comraid.push.send({
   idempotencyKey: comraid.createIdempotencyKey(),
 });
 
+// Single send — Anonymous / known Endpoints by Endpoint id (exactly one of
+// external_user_ids or endpoint_ids)
+await comraid.push.send({
+  to: { endpoint_ids: ["2344b756-df66-4311-b3a9-433fd48e8e59"] },
+  content: { title: "Hello", body: "Endpoint" },
+  ttl: 3600,
+  collapse_key: "order-42",
+});
+
 // Rich push fields (OpenAPI `content.push`) — optional; nested under content.push as-is.
 // `deep_link` is delivered to devices as `cr_deep_link` in FCM/APNs data.
 await comraid.push.send({
@@ -174,14 +183,17 @@ Helpers set `channel: push` and nest caller Content under `content.push`. Full H
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `input.to` | `{ external_user_ids: string[] }` | yes | Named Contacts by External user ID. |
+| `input.to` | `PushSendTo` | yes | Exactly one of `external_user_ids` (named Contacts) or `endpoint_ids` (Endpoint ids). |
 | `input.content` | `PushContent` | yes | Push title/body and optional rich fields. |
 | `input.category` | `string` | no | Notification category. |
 | `input.type` | `string` | no | Message type label. |
 | `input.name` | `string` | no | Dashboard / reporting name. |
 | `input.priority` | `"high" \| "normal"` | no | Delivery priority. |
-| `input.data` | `Record<string, unknown>` | no | Custom data payload. |
-| `input.send_at` | `string \| null` | no | Schedule time (ISO 8601). |
+| `input.ttl` | `number` | no | Time-to-live in seconds from send time (or from `send_at` when scheduled). |
+| `input.collapse_key` | `string` | no | Collapse key so later sends with the same key replace earlier ones on device. |
+| `input.data` | `Record<string, unknown>` | no | Custom data object. |
+| `input.send_at` | `string \| null` | no | Absolute UTC send time (ISO 8601). Mutually exclusive with `send_at_local`. |
+| `input.send_at_local` | `string` | no | Local wall-clock datetime without timezone. Mutually exclusive with `send_at`. |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
 | `input.signal` | `AbortSignal` | no | Cancellation. |
 
@@ -189,13 +201,13 @@ Helpers set `channel: push` and nest caller Content under `content.push`. Full H
 
 #### `comraid.push.broadcast(input)` → OpenAPI `createMessage` (Broadcast)
 
-Same optional fields as `send`, except audience is `targeting` instead of `to`.
+Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `input.targeting` | `TargetingSpec` | yes | Exactly one of `everyone`, `segment_id`, or `rules`. |
 | `input.content` | `PushContent` | yes | Push Content. |
-| … | | | Same optional fields as `push.send`. |
+| … | | | Same optional fields as `push.send` (`ttl`, `collapse_key`, `send_at` / `send_at_local`, …). |
 
 **Returns:** `Promise<MessageAccepted>`
 
@@ -203,7 +215,7 @@ Same optional fields as `send`, except audience is `targeting` instead of `to`.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `input.recipients` | `PushMultiSendRecipient[]` | yes | Non-empty; each entry has `external_user_id` + `content` (and optional per-recipient fields). |
+| `input.recipients` | `PushMultiSendRecipient[]` | yes | Non-empty; each entry has `external_user_id` + `content` (and optional per-recipient `ttl`, `collapse_key`, …). |
 | `input.name` | `string` | no | Campaign name. |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
 | `input.signal` | `AbortSignal` | no | Cancellation. |

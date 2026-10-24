@@ -41,6 +41,62 @@ test("push.send creates a Single-send Message by External user ID", async () => 
 	});
 });
 
+test("push.send creates a Single-send Message by Endpoint id", async () => {
+	const { client, calls } = clientWithCapture();
+	const endpointId = "2344b756-df66-4311-b3a9-433fd48e8e59";
+	await client.push.send({
+		to: { endpoint_ids: [endpointId] },
+		content: { title: "Anon", body: "Endpoint target" },
+	});
+
+	assert.deepEqual(calls[0].body.to, { endpoint_ids: [endpointId] });
+	assert.equal(calls[0].body.channel, "push");
+	assert.deepEqual(calls[0].body.content.push, { title: "Anon", body: "Endpoint target" });
+});
+
+test("push.send and push.broadcast pass through ttl, collapse_key, and send_at_local", async () => {
+	const { client, calls } = clientWithCapture();
+
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		content: { title: "T", body: "B" },
+		ttl: 3600,
+		collapse_key: "order-42",
+		send_at_local: "2026-10-22T09:00:00",
+	});
+	assert.equal(calls[0].body.ttl, 3600);
+	assert.equal(calls[0].body.collapse_key, "order-42");
+	assert.equal(calls[0].body.send_at_local, "2026-10-22T09:00:00");
+
+	await client.push.broadcast({
+		targeting: { everyone: true },
+		content: { title: "T", body: "B" },
+		ttl: 120,
+		collapse_key: "promo",
+		send_at_local: "2026-10-23T08:00:00",
+	});
+	assert.equal(calls[1].body.ttl, 120);
+	assert.equal(calls[1].body.collapse_key, "promo");
+	assert.equal(calls[1].body.send_at_local, "2026-10-23T08:00:00");
+});
+
+test("push.multiSend passes through per-recipient ttl and collapse_key", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.multiSend({
+		recipients: [
+			{
+				external_user_id: "user_a",
+				content: { title: "Hi", body: "A" },
+				ttl: 600,
+				collapse_key: "welcome",
+			},
+		],
+	});
+
+	assert.equal(calls[0].body.recipients[0].ttl, 600);
+	assert.equal(calls[0].body.recipients[0].collapse_key, "welcome");
+});
+
 test("push.send always sets channel to push", async () => {
 	const { client, calls } = clientWithCapture();
 	await client.push.send({
@@ -79,7 +135,7 @@ test("push.send and push.broadcast reject the wrong audience shape", () => {
 	const { client, calls } = clientWithCapture();
 	assert.throws(
 		() => client.push.send({ targeting: { everyone: true }, content: { title: "T", body: "B" } }),
-		/push\.send requires to\.external_user_ids/,
+		/push\.send requires to \(external_user_ids or endpoint_ids\)/,
 	);
 	assert.throws(
 		() => client.push.broadcast({ to: { external_user_ids: ["a"] }, content: { title: "T", body: "B" } }),
