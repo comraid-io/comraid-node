@@ -57,8 +57,13 @@ export interface PushAction {
  * Rich fields map 1:1; `deep_link` is delivered to devices as `cr_deep_link`.
  */
 export interface PushContent {
-  title: string;
-  body: string;
+  /**
+   * When true, Data-only Notification: Provider omits system tray UI.
+   * Title/body become optional app hints; Message `data` must be non-empty.
+   */
+  data_only?: boolean;
+  title?: string;
+  body?: string;
   image_url?: string | null;
   /** First-class deep link / launch URL → device payload `cr_deep_link`. */
   deep_link?: string | null;
