@@ -83,3 +83,12 @@ test("PushSendInput documents OpenAPI Message create targeting and reliability f
 	assert.match(openapi, /^\s{8}collapse_key:/m);
 	assert.match(openapi, /^\s{8}send_at_local:/m);
 });
+
+test("PushContent documents data_only", () => {
+	const dts = fs.readFileSync(path.join(root, "src/index.d.ts"), "utf8");
+	assert.match(dts, /data_only\??:\s*boolean/);
+	const openapiPath = resolveOpenApiPath();
+	assert.ok(openapiPath, "OpenAPI file not found");
+	const openapi = fs.readFileSync(openapiPath, "utf8");
+	assert.match(openapi, /data_only:/);
+});

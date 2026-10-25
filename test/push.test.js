@@ -203,3 +203,39 @@ test("push.multiSend rejects an empty recipients list", () => {
 	assert.throws(() => client.push.multiSend({ recipients: [] }), /non-empty recipients/);
 	assert.equal(calls.length, 0);
 });
+
+test("push.send accepts data_only Content with optional title/body", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		data: { order_id: "42" },
+		content: {
+			data_only: true,
+			title: "Rematch?",
+			body: "Play again",
+			actions: [{ id: "accept", text: "Accept" }],
+		},
+	});
+	assert.deepEqual(calls[0].body.content.push, {
+		data_only: true,
+		title: "Rematch?",
+		body: "Play again",
+		actions: [{ id: "accept", text: "Accept" }],
+	});
+	assert.deepEqual(calls[0].body.data, { order_id: "42" });
+});
+
+test("push.multiSend passes data_only on child Contents", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.multiSend({
+		recipients: [
+			{
+				external_user_id: "user_a",
+				data: { k: "v" },
+				content: { data_only: true },
+			},
+		],
+	});
+	assert.equal(calls[0].path, "/campaigns");
+	assert.deepEqual(calls[0].body.recipients[0].content.push, { data_only: true });
+});
