@@ -231,7 +231,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDetail>` — includes rollup statuses such as `partial_complete`.
+**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts.
 
 #### `comraid.messages.cancel(messageId, options?)` → OpenAPI `cancelMessage`
 

@@ -100,11 +100,10 @@ export interface TargetingSpec {
 }
 
 export type MessageStatus =
-  | "queued"
   | "scheduled"
+  | "preparing"
   | "processing"
   | "completed"
-  | "partial_complete"
   | "failed"
   | "cancelled";
 
@@ -112,7 +111,6 @@ export type CampaignStatus =
   | "queued"
   | "processing"
   | "completed"
-  | "partial_complete"
   | "failed"
   | "cancelled";
 
