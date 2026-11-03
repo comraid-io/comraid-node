@@ -268,6 +268,48 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 
 **Returns:** `Promise<ContactResponse>`
 
+#### `comraid.contacts.endpoints.register(input)` → OpenAPI `registerEndpoint`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input.external_user_id` | `string` | yes | External user ID path segment. |
+| `input.address` | `string` | yes | FCM registration token or APNs device token. |
+| `input.platform` | `"android" \| "ios"` | yes | Endpoint platform. |
+| `input.provider` | `"fcm" \| "apns"` | no | Defaults from platform when omitted. |
+| `input.channel` | `"push"` | no | Only `push` is supported. |
+| `input.metadata` | `Record<string, unknown>` | no | For APNs include `apns_environment`. |
+| `input.idempotencyKey` | `string` | no | Idempotency key. |
+| `input.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<EndpointRegistered>`
+
+```js
+await comraid.contacts.endpoints.register({
+  external_user_id: "user_a",
+  address: "fcm-or-apns-token",
+  platform: "android",
+  provider: "fcm",
+});
+```
+
+#### `comraid.contacts.endpoints.list(externalUserId, options?)` → OpenAPI `listContactEndpoints`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `externalUserId` | `string` | yes | External user ID. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<EndpointListResponse>` (`{ endpoints: EndpointSummary[] }`). Provider tokens are omitted.
+
+#### `comraid.contacts.endpoints.deactivate(endpointId, options?)` → OpenAPI `deactivateEndpoint`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `endpointId` | `string` | yes | Endpoint id. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<EndpointDeactivated>` (`{ status: "deactivated" }`).
+
 #### `comraid.attributes.upsert(externalUserId, input)` → OpenAPI `upsertContactAttributes`
 
 | Param | Type | Required | Description |
@@ -384,8 +426,6 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Contacts | `upsertContactPreferences` | `PUT /contacts/{external_user_id}/preferences` |
 | Contacts | `listContactOptOuts` | `GET /contacts/{external_user_id}/opt-outs` |
 | Contacts | `putContactChannelOptOut` | `PUT /contacts/{external_user_id}/opt-outs/{channel}` |
-| Endpoints | `registerEndpoint` | `POST /contacts/{external_user_id}/endpoints` |
-| Endpoints | `deactivateEndpoint` | `DELETE /endpoints/{endpoint_id}` |
 | Messages | `previewTargeting` | `POST /messages/targeting/preview` |
 | Media | `uploadMedia` | `POST /media` |
 | Campaigns | `getCampaign` | `GET /campaigns/{id}` |

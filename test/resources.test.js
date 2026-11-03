@@ -193,3 +193,67 @@ test("segments methods require a segment id", () => {
 	assert.throws(() => client.segments.restore(""), /segments\.restore requires a segment id/);
 	assert.equal(calls.length, 0);
 });
+
+test("contacts.endpoints.register posts EndpointCreate under the Contact", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.endpoints.register({
+		external_user_id: "user/with spaces",
+		address: "fcm-token-1",
+		platform: "android",
+		provider: "fcm",
+		idempotencyKey: "ep-1",
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/contacts/user%2Fwith%20spaces/endpoints",
+		idempotencyKey: "ep-1",
+		body: {
+			address: "fcm-token-1",
+			platform: "android",
+			provider: "fcm",
+		},
+	});
+});
+
+test("contacts.endpoints.deactivate deletes by endpoint id", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "11111111-1111-4111-8111-111111111111";
+	await client.contacts.endpoints.deactivate(id, { signal: AbortSignal.timeout(5_000) });
+
+	assert.deepEqual(calls[0], {
+		method: "DELETE",
+		path: `/endpoints/${id}`,
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("contacts.endpoints.list gets endpoints for an External user ID", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.endpoints.list("user_a");
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/contacts/user_a/endpoints",
+	});
+});
+
+test("contacts.endpoints methods require ids and EndpointCreate fields", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(
+		() => client.contacts.endpoints.register({ address: "t", platform: "android" }),
+		/contacts\.endpoints\.register requires external_user_id/,
+	);
+	assert.throws(
+		() => client.contacts.endpoints.register({ external_user_id: "u", platform: "android" }),
+		/contacts\.endpoints\.register requires address/,
+	);
+	assert.throws(
+		() => client.contacts.endpoints.register({ external_user_id: "u", address: "t" }),
+		/contacts\.endpoints\.register requires platform/,
+	);
+	assert.throws(() => client.contacts.endpoints.deactivate(""), /contacts\.endpoints\.deactivate requires an endpoint id/);
+	assert.throws(() => client.contacts.endpoints.list(""), /contacts\.endpoints\.list requires external_user_id/);
+	assert.equal(calls.length, 0);
+});

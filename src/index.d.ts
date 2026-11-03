@@ -183,6 +183,46 @@ export interface ContactResponse {
   updated_attributes?: string[];
 }
 
+/** OpenAPI `EndpointCreate` (body fields; `external_user_id` is the path segment). */
+export interface EndpointCreate {
+  channel?: "push";
+  provider?: "fcm" | "apns";
+  /** FCM registration token or APNs device token. */
+  address: string;
+  platform: "android" | "ios";
+  metadata?: Record<string, unknown>;
+}
+
+/** Created Endpoint summary from OpenAPI `registerEndpoint`. */
+export interface EndpointRegistered {
+  endpoint_id: string;
+  contact_id: string;
+  channel: string;
+  provider: string;
+  platform: string;
+}
+
+/** OpenAPI `EndpointSummary` (list item; token omitted). */
+export interface EndpointSummary {
+  endpoint_id: string;
+  channel: string;
+  provider: string;
+  platform?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  last_seen_at?: string | null;
+}
+
+/** OpenAPI `EndpointListResponse`. */
+export interface EndpointListResponse {
+  endpoints: EndpointSummary[];
+}
+
+/** OpenAPI deactivateEndpoint response. */
+export interface EndpointDeactivated {
+  status: "deactivated";
+}
+
 /** OpenAPI `SegmentCreate`. */
 export interface SegmentCreate {
   name: string;
@@ -299,11 +339,27 @@ export type ContactUpsertInput = ContactUpsert & {
   signal?: AbortSignal;
 };
 
+export type EndpointRegisterInput = EndpointCreate & {
+  external_user_id: string;
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+};
+
+export interface ContactsEndpointsApi {
+  /** `POST /contacts/{external_user_id}/endpoints` → OpenAPI `registerEndpoint`. */
+  register(input: EndpointRegisterInput): Promise<EndpointRegistered>;
+  /** `DELETE /endpoints/{endpoint_id}` → OpenAPI `deactivateEndpoint`. */
+  deactivate(endpointId: string, options?: RequestSignalOptions): Promise<EndpointDeactivated>;
+  /** `GET /contacts/{external_user_id}/endpoints` → OpenAPI `listContactEndpoints`. */
+  list(externalUserId: string, options?: RequestSignalOptions): Promise<EndpointListResponse>;
+}
+
 export interface ContactsApi {
   /** `POST /contacts` → OpenAPI `createContact`. */
   create(input: ContactCreateInput): Promise<ContactResponse>;
   /** `PUT /contacts/{external_user_id}` → OpenAPI `upsertContact`. */
   upsert(externalUserId: string, input?: ContactUpsertInput): Promise<ContactResponse>;
+  readonly endpoints: ContactsEndpointsApi;
 }
 
 export interface AttributesUpsertInput {
