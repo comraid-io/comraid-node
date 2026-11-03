@@ -398,12 +398,43 @@ export interface SegmentsApi {
   restore(segmentId: string, options?: RequestSignalOptions): Promise<unknown>;
 }
 
+export interface CreateIdentityTokenOptions {
+  /** Project UUID — becomes JWT `iss` as `comraid:{projectId}`. */
+  projectId: string;
+  /** PEM-encoded RSA private key (PKCS#8 or PKCS#1), or a KeyObject. */
+  privateKey: string | import("node:crypto").KeyObject;
+  /** Key id that matches an uploaded identity verification public key. */
+  kid: string;
+  /**
+   * Token lifetime in seconds from `iat`. Default 300 (5 minutes).
+   * Must be ≤ 600 (server max).
+   */
+  expiresIn?: number;
+}
+
+/**
+ * Mint an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`.
+ * Offline helper — does not call the API. Upload the matching public key in Push settings.
+ */
+export function createToken(
+  externalUserId: string,
+  options: CreateIdentityTokenOptions,
+): string;
+
+export interface IdentityApi {
+  createToken(externalUserId: string, options: CreateIdentityTokenOptions): string;
+}
+
+export const identity: IdentityApi;
+
 export class ComRaid {
+  static readonly identity: IdentityApi;
   readonly push: PushApi;
   readonly messages: MessagesApi;
   readonly contacts: ContactsApi;
   readonly attributes: AttributesApi;
   readonly segments: SegmentsApi;
+  readonly identity: IdentityApi;
   constructor(options: ComRaidOptions);
   request<TResponse = unknown, TBody = unknown>(options: RequestOptions<TBody>): Promise<TResponse>;
   createIdempotencyKey(): string;
