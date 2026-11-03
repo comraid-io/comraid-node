@@ -32,15 +32,6 @@ await comraid.push.send({
   idempotencyKey: comraid.createIdempotencyKey(),
 });
 
-// Single send — Anonymous / known Endpoints by Endpoint id (exactly one of
-// external_user_ids or endpoint_ids)
-await comraid.push.send({
-  to: { endpoint_ids: ["2344b756-df66-4311-b3a9-433fd48e8e59"] },
-  content: { title: "Hello", body: "Endpoint" },
-  ttl: 3600,
-  collapse_key: "order-42",
-});
-
 // Rich push fields (OpenAPI `content.push`) — optional; nested under content.push as-is.
 // `deep_link` is delivered to devices as `cr_deep_link` in FCM/APNs data.
 await comraid.push.send({
@@ -210,7 +201,7 @@ Helpers set `channel: push` and nest caller Content under `content.push`. Full H
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `input.to` | `PushSendTo` | yes | Exactly one of `external_user_ids` (named Contacts) or `endpoint_ids` (Endpoint ids). |
+| `input.to` | `PushSendTo` | yes | `external_user_ids` (named Contacts). `endpoint_ids` is rejected. |
 | `input.content` | `PushContent` | yes | Push title/body and optional rich fields. |
 | `input.category` | `string` | no | Notification category. |
 | `input.type` | `string` | no | Message type label. |
