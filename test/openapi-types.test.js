@@ -71,12 +71,14 @@ test("PushSendInput documents OpenAPI Message create targeting and reliability f
 	const dts = fs.readFileSync(path.join(root, "src/index.d.ts"), "utf8");
 	const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
 
-	assert.match(dts, /endpoint_ids\??:\s*string\[\]/);
+	assert.match(dts, /external_user_ids:\s*string\[\]/);
+	assert.doesNotMatch(dts, /endpoint_ids\??:\s*string\[\]/);
 	assert.match(dts, /\bttl\??:\s*number\b/);
 	assert.match(dts, /\bcollapse_key\??:\s*string\b/);
 	assert.match(dts, /\bsend_at_local\??:\s*string\b/);
 
-	assert.match(readme, /endpoint_ids/);
+	assert.match(readme, /external_user_ids/);
+	assert.match(readme, /endpoint_ids[`']? is rejected/);
 	assert.match(readme, /\bttl\b/);
 	assert.match(readme, /collapse_key/);
 	assert.match(readme, /send_at_local/);
@@ -84,7 +86,8 @@ test("PushSendInput documents OpenAPI Message create targeting and reliability f
 	const openapiPath = resolveOpenApiPath();
 	assert.ok(openapiPath, "OpenAPI file not found; set COMRAID_OPENAPI or keep sibling server checkout");
 	const openapi = fs.readFileSync(openapiPath, "utf8");
-	assert.match(openapi, /endpoint_ids:/);
+	assert.match(openapi, /to\.endpoint_ids[`']?\s*is rejected/);
+	assert.doesNotMatch(openapi, /^\s+endpoint_ids:/m);
 	assert.match(openapi, /^\s{8}ttl:/m);
 	assert.match(openapi, /^\s{8}collapse_key:/m);
 	assert.match(openapi, /^\s{8}send_at_local:/m);

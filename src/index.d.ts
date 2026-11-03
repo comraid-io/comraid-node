@@ -256,11 +256,9 @@ export interface RequestSignalOptions {
 
 /**
  * Single-send targeting (OpenAPI `MessageCreate.to`).
- * Exactly one of `external_user_ids` or `endpoint_ids`.
+ * Address Contacts by External user ID only.
  */
-export type PushSendTo =
-  | { external_user_ids: string[]; endpoint_ids?: never }
-  | { endpoint_ids: string[]; external_user_ids?: never };
+export type PushSendTo = { external_user_ids: string[] };
 
 /** Shared Message create fields for push Single send / Broadcast. */
 export interface PushMessageCreateFields {
@@ -314,7 +312,7 @@ export interface PushMultiSendInput {
 }
 
 export interface PushApi {
-  /** Single send → `POST /messages` with `to.external_user_ids` or `to.endpoint_ids`. */
+  /** Single send → `POST /messages` with `to.external_user_ids`. */
   send(input: PushSendInput): Promise<MessageAccepted>;
   /** Broadcast → `POST /messages` with `targeting`. */
   broadcast(input: PushBroadcastInput): Promise<MessageAccepted>;

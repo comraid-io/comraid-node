@@ -41,17 +41,17 @@ test("push.send creates a Single-send Message by External user ID", async () => 
 	});
 });
 
-test("push.send creates a Single-send Message by Endpoint id", async () => {
+test("push.send rejects endpoint_ids addressing", () => {
 	const { client, calls } = clientWithCapture();
-	const endpointId = "2344b756-df66-4311-b3a9-433fd48e8e59";
-	await client.push.send({
-		to: { endpoint_ids: [endpointId] },
-		content: { title: "Anon", body: "Endpoint target" },
-	});
-
-	assert.deepEqual(calls[0].body.to, { endpoint_ids: [endpointId] });
-	assert.equal(calls[0].body.channel, "push");
-	assert.deepEqual(calls[0].body.content.push, { title: "Anon", body: "Endpoint target" });
+	assert.throws(
+		() =>
+			client.push.send({
+				to: { endpoint_ids: ["2344b756-df66-4311-b3a9-433fd48e8e59"] },
+				content: { title: "Anon", body: "Endpoint target" },
+			}),
+		/endpoint_ids/,
+	);
+	assert.equal(calls.length, 0);
 });
 
 test("push.send and push.broadcast pass through ttl, collapse_key, and send_at_local", async () => {
@@ -135,7 +135,7 @@ test("push.send and push.broadcast reject the wrong audience shape", () => {
 	const { client, calls } = clientWithCapture();
 	assert.throws(
 		() => client.push.send({ targeting: { everyone: true }, content: { title: "T", body: "B" } }),
-		/push\.send requires to \(external_user_ids or endpoint_ids\)/,
+		/push\.send requires to\.external_user_ids/,
 	);
 	assert.throws(
 		() => client.push.broadcast({ to: { external_user_ids: ["a"] }, content: { title: "T", body: "B" } }),

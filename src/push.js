@@ -9,7 +9,15 @@ const CHANNEL = "push";
 export function createPushApi(client) {
 	return {
 		send(input) {
-			assertSendTarget(input, "to", "push.send requires to (external_user_ids or endpoint_ids)");
+			assertSendTarget(input, "to", "push.send requires to.external_user_ids");
+			if (input.to.endpoint_ids != null) {
+				throw new TypeError(
+					"push.send no longer accepts to.endpoint_ids; use to.external_user_ids",
+				);
+			}
+			if (!Array.isArray(input.to.external_user_ids) || input.to.external_user_ids.length === 0) {
+				throw new TypeError("push.send requires to.external_user_ids");
+			}
 			return createMessage(client, input);
 		},
 		broadcast(input) {
