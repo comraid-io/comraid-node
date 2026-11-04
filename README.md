@@ -227,7 +227,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `input.content` | `PushContent` | yes | Push Content. |
 | … | | | Same optional fields as `push.send` (`ttl`, `collapse_key`, `send_at` / `send_at_local`, …). |
 
-**Returns:** `Promise<MessageAccepted>`
+**Returns:** `Promise<MessageAccepted>` with `message_id` and status `preparing` (or `scheduled`). ComRaid builds the audience in the background, so there is no `delivery_count` and no 10,000-Contact cap. Read counts with `messages.get` once the status leaves `preparing`; an audience that matches nobody ends as `failed`.
 
 #### `comraid.push.multiSend(input)` → OpenAPI `createCampaign`
 
@@ -258,7 +258,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageCancelled>`
+**Returns:** `Promise<MessageCancelled>`. Only a `scheduled` Message can be cancelled; any other status rejects with a 409 conflict.
 
 ### Contacts and attributes
 

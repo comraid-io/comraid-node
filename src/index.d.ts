@@ -114,12 +114,18 @@ export type CampaignStatus =
   | "failed"
   | "cancelled";
 
-/** OpenAPI `MessageAccepted` (202 create response). */
+/**
+ * OpenAPI `MessageAccepted` (202 create response). A Broadcast returns status
+ * `preparing` without `delivery_count` / `recipients`; read counts from
+ * `messages.get` once it leaves `preparing`.
+ */
 export interface MessageAccepted {
   message_id: string;
   channel: string;
   status: MessageStatus;
+  /** Single send only. */
   delivery_count?: number;
+  /** Single send only. */
   recipients?: Array<Record<string, unknown>>;
 }
 
