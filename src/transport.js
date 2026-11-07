@@ -56,8 +56,13 @@ export class FetchTransport {
 
 		let body;
 		if (options.body !== undefined) {
-			headers.set("content-type", "application/json");
-			body = JSON.stringify(options.body);
+			if (isMultipartBody(options.body)) {
+				// Let fetch set multipart boundaries / Blob content-type.
+				body = options.body;
+			} else {
+				headers.set("content-type", "application/json");
+				body = JSON.stringify(options.body);
+			}
 		}
 
 		try {
@@ -92,6 +97,11 @@ export class FetchTransport {
 			clearTimeout(timeout);
 		}
 	}
+}
+
+function isMultipartBody(body) {
+	return (typeof FormData !== "undefined" && body instanceof FormData) ||
+		(typeof Blob !== "undefined" && body instanceof Blob);
 }
 
 function normalizeBaseUrl(value) {

@@ -70,6 +70,56 @@ export function createContactsApi(client) {
 				}),
 			);
 		},
+		optOut(externalUserId, channel, options = {}) {
+			const id = requireNonEmptyString(externalUserId, "contacts.optOut requires external_user_id");
+			const ch = requireNonEmptyString(channel, "contacts.optOut requires channel");
+			return client.request(
+				requestOptions({
+					method: "PUT",
+					path: `/contacts/${encodePathSegment(id)}/opt-outs/${encodePathSegment(ch)}`,
+					body: { opted_out: true },
+					signal: options.signal,
+				}),
+			);
+		},
+		optIn(externalUserId, channel, options = {}) {
+			const id = requireNonEmptyString(externalUserId, "contacts.optIn requires external_user_id");
+			const ch = requireNonEmptyString(channel, "contacts.optIn requires channel");
+			return client.request(
+				requestOptions({
+					method: "PUT",
+					path: `/contacts/${encodePathSegment(id)}/opt-outs/${encodePathSegment(ch)}`,
+					body: { opted_out: false },
+					signal: options.signal,
+				}),
+			);
+		},
+		getPreferences(externalUserId, options = {}) {
+			const id = requireNonEmptyString(externalUserId, "contacts.getPreferences requires external_user_id");
+			return client.request(
+				requestOptions({
+					method: "GET",
+					path: `/contacts/${encodePathSegment(id)}/preferences`,
+					signal: options.signal,
+				}),
+			);
+		},
+		setPreferences(externalUserId, input = {}) {
+			const id = requireNonEmptyString(externalUserId, "contacts.setPreferences requires external_user_id");
+			const { idempotencyKey, signal, preferences, ...rest } = input;
+			if (!Array.isArray(preferences)) {
+				throw new TypeError("contacts.setPreferences requires preferences");
+			}
+			return client.request(
+				requestOptions({
+					method: "PUT",
+					path: `/contacts/${encodePathSegment(id)}/preferences`,
+					body: { ...rest, preferences },
+					idempotencyKey,
+					signal,
+				}),
+			);
+		},
 		endpoints: createContactsEndpointsApi(client),
 	};
 }
