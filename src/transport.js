@@ -1,10 +1,12 @@
 import { ComRaidError, ComRaidTimeoutError } from "./errors.js";
+import { VERSION } from "./version.js";
 
-const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+const DEFAULT_BASE_URL = "https://api.comraid.io";
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
 
 export class FetchTransport {
-	constructor({ apiKey, baseUrl, fetch: fetchImplementation = globalThis.fetch, timeoutMs = 15_000, maxRetries = 2 }) {
+	constructor({ apiKey, baseUrl = DEFAULT_BASE_URL, fetch: fetchImplementation = globalThis.fetch, timeoutMs = 15_000, maxRetries = 2 }) {
 		if (!apiKey || typeof apiKey !== "string") throw new TypeError("apiKey is required");
 		if (typeof fetchImplementation !== "function") throw new TypeError("A fetch implementation is required");
 		if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new TypeError("timeoutMs must be positive and finite");
@@ -51,7 +53,7 @@ export class FetchTransport {
 		const headers = new Headers(options.headers);
 		headers.set("authorization", `Bearer ${this.apiKey}`);
 		headers.set("accept", "application/json");
-		headers.set("user-agent", "@comraid/node/0.1.0");
+		headers.set("user-agent", `@comraid/node/${VERSION}`);
 		if (options.idempotencyKey) headers.set("idempotency-key", options.idempotencyKey);
 
 		let body;

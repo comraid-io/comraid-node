@@ -172,6 +172,36 @@ test("push.broadcast creates a Message for Segment, rules, or everyone", async (
 	assert.equal(calls[2].body.channel, "push");
 });
 
+test("push.previewAudience posts TargetingPreviewRequest to /messages/targeting/preview", async () => {
+	const { client, calls } = clientWithCapture();
+	const result = await client.push.previewAudience({
+		segment_id: "seg_sys_subscribed",
+		platforms: ["android", "ios"],
+		category: "promo",
+		idempotencyKey: "preview-1",
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(calls.length, 1);
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		idempotencyKey: "preview-1",
+		body: {
+			segment_id: "seg_sys_subscribed",
+			platforms: ["android", "ios"],
+			category: "promo",
+		},
+	});
+
+	await client.push.previewAudience({ everyone: true });
+	assert.deepEqual(calls[1], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		body: { everyone: true },
+	});
+});
+
 test("push.multiSend creates a Campaign with per-Contact Contents", async () => {
 	const { client, calls } = clientWithCapture();
 	await client.push.multiSend({
@@ -238,31 +268,6 @@ test("push.multiSend passes data_only on child Contents", async () => {
 	});
 	assert.equal(calls[0].path, "/campaigns");
 	assert.deepEqual(calls[0].body.recipients[0].content.push, { data_only: true });
-});
-
-test("push.listDeliveries lists Message Deliveries with filters", async () => {
-	const { client, calls } = clientWithCapture();
-	await client.push.listDeliveries("11111111-1111-4111-8111-111111111111", {
-		limit: 2,
-		cursor: "abc",
-		status: "failed",
-		platform: "ios",
-		signal: AbortSignal.timeout(5_000),
-	});
-
-	assert.deepEqual(calls[0], {
-		method: "GET",
-		path: "/messages/11111111-1111-4111-8111-111111111111/deliveries",
-		query: { limit: 2, cursor: "abc", status: "failed", platform: "ios" },
-		signal: calls[0].signal,
-	});
-	assert.ok(calls[0].signal instanceof AbortSignal);
-});
-
-test("push.listDeliveries requires a message id", () => {
-	const { client, calls } = clientWithCapture();
-	assert.throws(() => client.push.listDeliveries(""), /push\.listDeliveries requires a message id/);
-	assert.equal(calls.length, 0);
 });
 
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
@@ -368,3 +373,29 @@ test("push.uploadMedia rejects oversized and non-JPEG/PNG uploads client-side", 
 
 	assert.equal(calls.length, 0);
 });
+
+test("push.listDeliveries lists Message Deliveries with filters", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.listDeliveries("11111111-1111-4111-8111-111111111111", {
+		limit: 2,
+		cursor: "abc",
+		status: "failed",
+		platform: "ios",
+		signal: AbortSignal.timeout(5_000),
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/messages/11111111-1111-4111-8111-111111111111/deliveries",
+		query: { limit: 2, cursor: "abc", status: "failed", platform: "ios" },
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("push.listDeliveries requires a message id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.listDeliveries(""), /push\.listDeliveries requires a message id/);
+	assert.equal(calls.length, 0);
+});
+

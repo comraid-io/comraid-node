@@ -22,7 +22,7 @@ import { ComRaid } from "@comraid/node";
 
 const comraid = new ComRaid({
   apiKey: process.env.COMRAID_API_KEY,
-  baseUrl: process.env.COMRAID_BASE_URL,
+  // baseUrl defaults to https://api.comraid.io
 });
 
 // Single send — named Contacts by External user ID
@@ -112,11 +112,10 @@ await comraid.segments.update(created.segment_id, {
 await comraid.segments.archive(created.segment_id);
 await comraid.segments.restore(created.segment_id);
 
-// Escape hatch — any OpenAPI path the SDK does not wrap
-const preview = await comraid.request({
-  method: "POST",
-  path: "/messages/targeting/preview",
-  body: { everyone: true },
+// Preview Broadcast targeting without creating a Message
+const preview = await comraid.push.previewAudience({
+  everyone: true,
+  platforms: ["android", "ios"],
 });
 ```
 
@@ -139,13 +138,13 @@ Constructs a client. By default builds a [`FetchTransport`](#fetchtransportoptio
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `options.apiKey` | `string` | yes\* | Project API key (`cr_sk_…`). Backend only. |
-| `options.baseUrl` | `string` | yes\* | API origin (no trailing slash required). |
+| `options.baseUrl` | `string` | no | API origin (no trailing slash required). Defaults to `https://api.comraid.io`. |
 | `options.fetch` | `typeof fetch` | no | Override `globalThis.fetch`. |
 | `options.timeoutMs` | `number` | no | Per-attempt timeout; default `15000`. |
 | `options.maxRetries` | `number` | no | Retries after the first attempt; `0`–`10`, default `2`. |
 | `options.transport` | `Transport` | yes\* | Custom transport; mutually exclusive with the Fetch options above. |
 
-\*Either (`apiKey` + `baseUrl`) **or** `transport`.
+\*Either `apiKey` **or** `transport`.
 
 **Returns:** `ComRaid` with `push`, `campaigns`, `contacts`, `attributes`, `segments`, `identity`, `request`, and `createIdempotencyKey`.
 
@@ -155,16 +154,16 @@ Generates a UUID suitable for the `Idempotency-Key` header on mutating requests.
 
 **Returns:** `string`
 
-#### `identity.createJwt(externalUserId, options)`
+#### `identity.createToken(externalUserId, options)`
 
-Offline helper that mints an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`. Also available as `ComRaid.identity.createJwt` / `comraid.identity.createJwt`. Does not call the API — upload the matching public key under Push settings. Identity verification stays optional per project; skip this when the required toggle is off. See [docs Authentication](https://docs.comraid.io/authentication).
+Offline helper that mints an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`. Also available as `ComRaid.identity.createToken` / `comraid.identity.createToken`. Does not call the API — upload the matching public key under Push settings. Identity verification stays optional per project; skip this when the required toggle is off. See [docs Authentication](https://docs.comraid.io/authentication).
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `externalUserId` | `string` | yes | Contact `external_user_id` (JWT `sub` + `external_user_id`). |
 | `options.projectId` | `string` | yes | Project UUID → `iss` `comraid:{projectId}`. |
 | `options.privateKey` | `string \| KeyObject` | yes | PEM RSA private key (PKCS#8 or PKCS#1). |
-| `options.kid` | `string` | yes | Key id matching an uploaded Identity verification public key. |
+| `options.kid` | `string` | yes | Key id matching an uploaded identity public key. |
 | `options.expiresIn` | `number` | no | Lifetime in seconds from `iat`. Default `300`; max `600`. |
 
 **Returns:** `string` — compact JWT (`aud=comraid:identity`).
@@ -173,7 +172,7 @@ Offline helper that mints an RS256 Identity verification JWT for mobile `login(e
 import { identity } from "@comraid/node";
 import { readFileSync } from "node:fs";
 
-const jwt = identity.createJwt("user_123", {
+const jwt = identity.createToken("user_123", {
   projectId: process.env.COMRAID_PROJECT_ID,
   privateKey: readFileSync("./comraid-identity.pem", "utf8"),
   kid: process.env.COMRAID_IDENTITY_KID,
@@ -210,7 +209,7 @@ request<TResponse>(options: RequestOptions): Promise<TResponse>
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `options.apiKey` | `string` | yes | Bearer token. |
-| `options.baseUrl` | `string` | yes | API origin. |
+| `options.baseUrl` | `string` | no | API origin. Defaults to `https://api.comraid.io`. |
 | `options.fetch` | `typeof fetch` | no | Fetch implementation. |
 | `options.timeoutMs` | `number` | no | Default `15000`. |
 | `options.maxRetries` | `number` | no | Default `2`. |
@@ -294,7 +293,7 @@ await comraid.push.send({
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDetail>` — `status` is one of `draft`, `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. Per-Endpoint Delivery rows are not embedded; use `push.listDeliveries`.
+**Returns:** `Promise<MessageDetail>` — `status` is one of `draft`, `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. A Notification reaches many Contacts; each Contact's copy is a Delivery (see `deliveries` / `status_summary`).
 
 #### `comraid.push.cancel(messageId, options?)` → OpenAPI `cancelMessage`
 
@@ -317,6 +316,22 @@ await comraid.push.send({
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
 **Returns:** `Promise<MessageDeliveryList>` — `deliveries` plus optional `next_cursor`. Row shape includes Contact (`external_user_id`), Endpoint (`platform`, `model`), status, and `error_code` / `error_message` for failed/skipped.
+
+#### `comraid.push.previewAudience(input)` → OpenAPI `previewTargeting`
+
+Evaluates Broadcast targeting without creating a Message. Preview-only `platforms` filters endpoint counts; `category` applies the same offerability filter as Broadcast create.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input.everyone` / `segment_id` / `rules` | `TargetingSpec` fields | yes\* | Exactly one targeting selector. |
+| `input.platforms` | `("android" \| "ios")[]` | no | Preview-only platform filter (not accepted on Message create `targeting`). |
+| `input.category` | `string` | no | Notification Category slug for preference filtering. |
+| `input.idempotencyKey` | `string` | no | Idempotency key. |
+| `input.signal` | `AbortSignal` | no | Cancellation. |
+
+\*Exactly one of `everyone`, `segment_id`, or `rules`.
+
+**Returns:** `Promise<TargetingPreviewResponse>` (`contacts`, `active_endpoints`, `android_endpoints`, `ios_endpoints`).
 
 ### Drafts
 
@@ -501,7 +516,7 @@ await comraid.contacts.endpoints.register({
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `externalUserId` | `string` | yes | External user ID. |
-| `input.attributes` | `Record<string, unknown \| null>` | yes | Attribute map to upsert. A `null` value removes that Attribute. |
+| `input.attributes` | `Record<string, unknown>` | yes | Attribute map to upsert. |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
 | `input.signal` | `AbortSignal` | no | Cancellation. |
 
@@ -558,7 +573,7 @@ await comraid.contacts.endpoints.register({
 | `segmentId` | `string` | yes | Segment id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<unknown>` (OpenAPI archive response body).
+**Returns:** `Promise<SegmentSummary>`
 
 #### `comraid.segments.restore(segmentId, options?)` → OpenAPI `restoreSegment`
 
@@ -567,7 +582,7 @@ await comraid.contacts.endpoints.register({
 | `segmentId` | `string` | yes | Segment id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<unknown>` (OpenAPI restore response body).
+**Returns:** `Promise<SegmentSummary>`
 
 ---
 
@@ -580,7 +595,7 @@ Thrown by `FetchTransport` / `request` (and thus every namespace helper):
 | `ComRaidError` | Non-OK HTTP response, invalid JSON on success, or normalized transport failures | `code?`, `status?`, `requestId?`, `retryable`, `details?` |
 | `ComRaidTimeoutError` | Per-attempt timeout (`timeoutMs`) | extends `ComRaidError`; `timeoutMs`; `code: "TIMEOUT"`; `retryable: true` |
 
-Retryable HTTP statuses include `408`, `409`, `425`, `429`, and `5xx`. Mutating non-idempotent methods (e.g. POST without `idempotencyKey`) are **not** retried.
+Retryable HTTP statuses include `408`, `425`, `429`, and `5xx`. **`409` is never retried** (permanent conflicts such as `idempotency_conflict`). Mutating non-idempotent methods (e.g. POST without `idempotencyKey`) are **not** retried.
 
 ```js
 import { ComRaid, ComRaidError, ComRaidTimeoutError } from "@comraid/node";
@@ -609,7 +624,6 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Ops | `healthz` | `GET /healthz` |
 | Ops | `readyz` | `GET /readyz` |
 | Contacts | `listContactOptOuts` | `GET /contacts/{external_user_id}/opt-outs` |
-| Messages | `previewTargeting` | `POST /messages/targeting/preview` |
 | Deliveries | `markDeliveryDelivered` | `POST /deliveries/{id}/delivered` |
 | Deliveries | `markDeliveryOpened` | `POST /deliveries/{id}/opened` |
 | Mobile | `mobileListCategories` | `GET /mobile/notification-categories` |
@@ -622,4 +636,4 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Mobile | `mobileSubscriptionOptIn` | `POST /mobile/subscriptions/{id}/opt-in` |
 | Mobile | `mobileSubscriptionUpsertAttributes` | `PUT /mobile/subscriptions/{id}/attributes` |
 
-Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `listContactPreferences` / `upsertContactPreferences` (via `contacts.getPreferences` / `setPreferences`), `putContactChannelOptOut` (via `contacts.optOut` / `optIn`), `createMessage` (via `push.send` / `push.broadcast` / `push.drafts.create`), `listMessages` / `updateDraft` / `sendDraft` / `archiveDraft` (via `push.drafts.*`), `getMessage` / `cancelMessage` (via `push.get` / `push.cancel`), `createCampaign` (via `push.multiSend`), `getCampaign` / `cancelCampaign` (via `campaigns.get` / `cancel`), `uploadMedia` (via `push.uploadMedia`), and all six Segment operations.
+Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `listContactPreferences` / `upsertContactPreferences` (via `contacts.getPreferences` / `setPreferences`), `putContactChannelOptOut` (via `contacts.optOut` / `optIn`), `createMessage` (via `push.send` / `push.broadcast` / `push.drafts.create`), `listMessages` / `updateDraft` / `sendDraft` / `archiveDraft` (via `push.drafts.*`), `getMessage` / `cancelMessage` (via `push.get` / `push.cancel`), `createCampaign` (via `push.multiSend`), `getCampaign` / `cancelCampaign` (via `campaigns.get` / `cancel`), `uploadMedia` (via `push.uploadMedia`), `previewTargeting` (via `push.previewAudience`), and all six Segment operations.

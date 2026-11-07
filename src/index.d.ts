@@ -18,7 +18,8 @@ export interface Transport {
 
 export interface FetchTransportOptions {
   apiKey: string;
-  baseUrl: string;
+  /** API origin. Defaults to `https://api.comraid.io`. */
+  baseUrl?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   maxRetries?: number;
@@ -100,6 +101,23 @@ export interface TargetingSpec {
   rules?: SegmentRules;
 }
 
+/**
+ * OpenAPI `TargetingPreviewRequest` — TargetingSpec plus preview-only filters.
+ * `platforms` and `category` are not accepted on Message create `targeting`.
+ */
+export interface TargetingPreviewRequest extends TargetingSpec {
+  platforms?: Array<"android" | "ios">;
+  category?: string;
+}
+
+/** OpenAPI `TargetingPreviewResponse`. */
+export interface TargetingPreviewResponse {
+  contacts: number;
+  active_endpoints: number;
+  android_endpoints: number;
+  ios_endpoints: number;
+}
+
 export type MessageStatus =
   | "draft"
   | "scheduled"
@@ -144,43 +162,8 @@ export interface MessageDetail {
   targeting?: Record<string, unknown> | null;
   timing?: Record<string, unknown>;
   attribution?: Record<string, unknown>;
+  deliveries?: Array<Record<string, unknown>>;
 }
-
-/** OpenAPI `DeliveryInspection` (list Message Deliveries item). */
-export interface DeliveryInspection {
-  delivery_id: string;
-  channel?: string;
-  provider?: string;
-  platform?: string | null;
-  model?: string | null;
-  contact_id?: string;
-  external_user_id?: string | null;
-  status?: string;
-  attempt_count?: number;
-  provider_message_id?: string | null;
-  queued_at?: string | null;
-  sent_at?: string | null;
-  delivered_at?: string | null;
-  opened_at?: string | null;
-  failed_at?: string | null;
-  error_code?: string | null;
-  error_message?: string | null;
-  action_id?: string | null;
-  action_clicked_at?: string | null;
-}
-
-/** OpenAPI `MessageDeliveryList` (GET /messages/{id}/deliveries). */
-export interface MessageDeliveryList {
-  deliveries: DeliveryInspection[];
-  next_cursor?: string;
-}
-
-export type ListMessageDeliveriesOptions = RequestSignalOptions & {
-  limit?: number;
-  cursor?: string;
-  status?: string;
-  platform?: "android" | "ios";
-};
 
 /** OpenAPI cancel Message response. */
 export interface MessageCancelled {
@@ -279,7 +262,7 @@ export interface ContactCreate {
   locale?: string;
   timezone?: string;
   metadata?: Record<string, unknown>;
-  attributes?: Record<string, unknown | null>;
+  attributes?: Record<string, unknown>;
 }
 
 /** OpenAPI `ContactUpsert`. */
@@ -288,7 +271,7 @@ export interface ContactUpsert {
   locale?: string;
   timezone?: string;
   metadata?: Record<string, unknown>;
-  attributes?: Record<string, unknown | null>;
+  attributes?: Record<string, unknown>;
 }
 
 /** OpenAPI `ContactResponse`. */
@@ -406,6 +389,12 @@ export interface PushBroadcastInput extends PushMessageCreateFields {
   signal?: AbortSignal;
 }
 
+/** Input for `push.previewAudience` → OpenAPI `previewTargeting`. */
+export type PushPreviewAudienceInput = TargetingPreviewRequest & {
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+};
+
 export interface PushMultiSendRecipient {
   external_user_id: string;
   content: PushContent;
@@ -478,6 +467,33 @@ export interface PushDraftsApi {
   archive(messageId: string, options?: RequestSignalOptions): Promise<DraftArchived>;
 }
 
+export interface MessageDeliveryList {
+  deliveries: DeliveryInspection[];
+  next_cursor?: string;
+}
+
+export interface DeliveryInspection {
+  delivery_id: string;
+  channel?: string;
+  provider?: string;
+  platform?: string | null;
+  model?: string | null;
+  contact_id?: string;
+  external_user_id?: string | null;
+  status?: string;
+  attempt_count?: number;
+  provider_message_id?: string | null;
+  queued_at?: string | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  opened_at?: string | null;
+  failed_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  action_id?: string | null;
+  action_clicked_at?: string | null;
+}
+
 export interface PushApi {
   /**
    * Upload a JPEG/PNG (max 1 MiB) → OpenAPI `uploadMedia` (`POST /media`).
@@ -491,17 +507,20 @@ export interface PushApi {
   broadcast(input: PushBroadcastInput): Promise<MessageAccepted>;
   /** Multi-send → `POST /campaigns` with per-Contact Contents. */
   multiSend(input: PushMultiSendInput): Promise<CampaignAccepted>;
-  /** `GET /messages/{id}/deliveries` → OpenAPI `listMessageDeliveries`. */
-  listDeliveries(
-    messageId: string,
-    options?: ListMessageDeliveriesOptions,
-  ): Promise<MessageDeliveryList>;
   /** `GET /messages/{id}` → OpenAPI `getMessage`. */
   get(messageId: string, options?: RequestSignalOptions): Promise<MessageDetail>;
   /** `POST /messages/{id}/cancel` → OpenAPI `cancelMessage`. */
   cancel(messageId: string, options?: RequestSignalOptions): Promise<MessageCancelled>;
   readonly drafts: PushDraftsApi;
+  /** `GET /messages/{id}/deliveries` → OpenAPI `listMessageDeliveries`. */
+  listDeliveries(
+    messageId: string,
+    options?: ListMessageDeliveriesOptions,
+  ): Promise<MessageDeliveryList>;
+  /** Preview Broadcast targeting → OpenAPI `previewTargeting`. */
+  previewAudience(input: PushPreviewAudienceInput): Promise<TargetingPreviewResponse>;
 }
+
 
 export interface CampaignsApi {
   /** `GET /campaigns/{id}` → OpenAPI `getCampaign`. */
@@ -558,8 +577,7 @@ export interface ContactsApi {
 }
 
 export interface AttributesUpsertInput {
-  /** Attribute map to upsert. A `null` value removes that Attribute. */
-  attributes: Record<string, unknown | null>;
+  attributes: Record<string, unknown>;
   idempotencyKey?: string;
   signal?: AbortSignal;
 }
@@ -589,20 +607,20 @@ export interface SegmentsApi {
   /** `PUT /segments/{id}` → OpenAPI `updateSegment`. */
   update(segmentId: string, input: SegmentUpdateInput): Promise<SegmentSummary>;
   /** `DELETE /segments/{id}` → OpenAPI `archiveSegment`. */
-  archive(segmentId: string, options?: RequestSignalOptions): Promise<unknown>;
+  archive(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `POST /segments/{id}/restore` → OpenAPI `restoreSegment`. */
-  restore(segmentId: string, options?: RequestSignalOptions): Promise<unknown>;
+  restore(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
 }
 
-export interface CreateJwtOptions {
+export interface CreateIdentityTokenOptions {
   /** Project UUID — becomes JWT `iss` as `comraid:{projectId}`. */
   projectId: string;
   /** PEM-encoded RSA private key (PKCS#8 or PKCS#1), or a KeyObject. */
   privateKey: string | import("node:crypto").KeyObject;
-  /** Key id that matches an uploaded Identity verification public key. */
+  /** Key id that matches an uploaded identity verification public key. */
   kid: string;
   /**
-   * JWT lifetime in seconds from `iat`. Default 300 (5 minutes).
+   * Token lifetime in seconds from `iat`. Default 300 (5 minutes).
    * Must be ≤ 600 (server max).
    */
   expiresIn?: number;
@@ -612,13 +630,13 @@ export interface CreateJwtOptions {
  * Mint an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`.
  * Offline helper — does not call the API. Upload the matching public key in Push settings.
  */
-export function createJwt(
+export function createToken(
   externalUserId: string,
-  options: CreateJwtOptions,
+  options: CreateIdentityTokenOptions,
 ): string;
 
 export interface IdentityApi {
-  createJwt(externalUserId: string, options: CreateJwtOptions): string;
+  createToken(externalUserId: string, options: CreateIdentityTokenOptions): string;
 }
 
 export const identity: IdentityApi;

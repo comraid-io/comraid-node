@@ -18,8 +18,6 @@ const REQUIRED_SCHEMA_NAMES = [
 	"EndpointSummary",
 	"EndpointListResponse",
 	"MessageDetail",
-	"MessageDeliveryList",
-	"DeliveryInspection",
 	"MessageList",
 	"MessageDraftUpdate",
 	"SegmentCreate",
@@ -31,11 +29,13 @@ const REQUIRED_SCHEMA_NAMES = [
 	"CampaignDetail",
 	"CampaignCancelled",
 	"MediaUploadResponse",
+	"DeliveryInspection",
+	"TargetingPreviewRequest",
+	"TargetingPreviewResponse",
 ];
 
 const REQUIRED_OPERATION_IDS = [
 	"getMessage",
-	"listMessageDeliveries",
 	"cancelMessage",
 	"listMessages",
 	"updateDraft",
@@ -59,6 +59,7 @@ const REQUIRED_OPERATION_IDS = [
 	"archiveSegment",
 	"restoreSegment",
 	"uploadMedia",
+	"previewTargeting",
 ];
 
 function resolveOpenApiPath() {
@@ -121,4 +122,19 @@ test("PushContent documents data_only", () => {
 	assert.ok(openapiPath, "OpenAPI file not found");
 	const openapi = fs.readFileSync(openapiPath, "utf8");
 	assert.match(openapi, /data_only:/);
+});
+
+test("segments.archive and restore are typed as SegmentSummary; push.previewAudience is declared", () => {
+	const dts = fs.readFileSync(path.join(root, "src/index.d.ts"), "utf8");
+	assert.match(
+		dts,
+		/archive\(segmentId: string, options\?: RequestSignalOptions\): Promise<SegmentSummary>/,
+	);
+	assert.match(
+		dts,
+		/restore\(segmentId: string, options\?: RequestSignalOptions\): Promise<SegmentSummary>/,
+	);
+	assert.match(dts, /previewAudience\(input: PushPreviewAudienceInput\): Promise<TargetingPreviewResponse>/);
+	assert.match(dts, /interface TargetingPreviewRequest/);
+	assert.match(dts, /interface TargetingPreviewResponse/);
 });
