@@ -84,6 +84,18 @@ export function createPushApi(client) {
 				}),
 			);
 		},
+		previewAudience(input = {}) {
+			const { idempotencyKey, signal, ...body } = input;
+			return client.request(
+				requestOptions({
+					method: "POST",
+					path: "/messages/targeting/preview",
+					idempotencyKey,
+					signal,
+					body,
+				}),
+			);
+		},
 		drafts: createDraftsApi(client),
 	};
 }

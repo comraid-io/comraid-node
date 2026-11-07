@@ -60,6 +60,52 @@ test("retries idempotent reads", async () => {
 	assert.equal(attempts, 2);
 });
 
+test("never retries 409 Conflict (idempotency_conflict is permanent)", async () => {
+	let attempts = 0;
+	const fetch = async () => {
+		attempts += 1;
+		return new Response(
+			JSON.stringify({ code: "idempotency_conflict", message: "Idempotency-Key already used with a different body" }),
+			{ status: 409, headers: { "content-type": "application/json", "x-request-id": "req-409" } },
+		);
+	};
+	const transport = new FetchTransport({
+		apiKey: "secret",
+		baseUrl: "https://api.example.test",
+		fetch,
+		maxRetries: 3,
+	});
+	await assert.rejects(
+		transport.request({ method: "PUT", path: "/contacts/user_a", body: { name: "Ada" }, idempotencyKey: "idem-1" }),
+		(error) =>
+			error instanceof ComRaidError &&
+			error.status === 409 &&
+			error.code === "idempotency_conflict" &&
+			error.retryable === false &&
+			error.requestId === "req-409",
+	);
+	assert.equal(attempts, 1);
+});
+
+test("defaults baseUrl to https://api.comraid.io", async () => {
+	let capturedUrl;
+	const fetch = async (url) => {
+		capturedUrl = url;
+		return new Response(JSON.stringify({ ok: true }), {
+			status: 200,
+			headers: { "content-type": "application/json" },
+		});
+	};
+	const transport = new FetchTransport({ apiKey: "secret", fetch, maxRetries: 0 });
+	assert.equal(transport.baseUrl, "https://api.comraid.io");
+	await transport.request({ path: "/healthz" });
+	assert.equal(capturedUrl.toString(), "https://api.comraid.io/healthz");
+
+	const client = new ComRaid({ apiKey: "secret", fetch, maxRetries: 0 });
+	await client.request({ path: "/readyz" });
+	assert.match(String(capturedUrl), /^https:\/\/api\.comraid\.io\/readyz/);
+});
+
 test("does not retry unsafe mutations without an idempotency key", async () => {
 	let attempts = 0;
 	const fetch = async () => {

@@ -18,7 +18,8 @@ export interface Transport {
 
 export interface FetchTransportOptions {
   apiKey: string;
-  baseUrl: string;
+  /** API origin. Defaults to `https://api.comraid.io`. */
+  baseUrl?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   maxRetries?: number;
@@ -98,6 +99,23 @@ export interface TargetingSpec {
   everyone?: boolean;
   segment_id?: string;
   rules?: SegmentRules;
+}
+
+/**
+ * OpenAPI `TargetingPreviewRequest` — TargetingSpec plus preview-only filters.
+ * `platforms` and `category` are not accepted on Message create `targeting`.
+ */
+export interface TargetingPreviewRequest extends TargetingSpec {
+  platforms?: Array<"android" | "ios">;
+  category?: string;
+}
+
+/** OpenAPI `TargetingPreviewResponse`. */
+export interface TargetingPreviewResponse {
+  contacts: number;
+  active_endpoints: number;
+  android_endpoints: number;
+  ios_endpoints: number;
 }
 
 export type MessageStatus =
@@ -371,6 +389,12 @@ export interface PushBroadcastInput extends PushMessageCreateFields {
   signal?: AbortSignal;
 }
 
+/** Input for `push.previewAudience` → OpenAPI `previewTargeting`. */
+export type PushPreviewAudienceInput = TargetingPreviewRequest & {
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+};
+
 export interface PushMultiSendRecipient {
   external_user_id: string;
   content: PushContent;
@@ -493,6 +517,8 @@ export interface PushApi {
     messageId: string,
     options?: ListMessageDeliveriesOptions,
   ): Promise<MessageDeliveryList>;
+  /** Preview Broadcast targeting → OpenAPI `previewTargeting`. */
+  previewAudience(input: PushPreviewAudienceInput): Promise<TargetingPreviewResponse>;
 }
 
 
@@ -581,9 +607,9 @@ export interface SegmentsApi {
   /** `PUT /segments/{id}` → OpenAPI `updateSegment`. */
   update(segmentId: string, input: SegmentUpdateInput): Promise<SegmentSummary>;
   /** `DELETE /segments/{id}` → OpenAPI `archiveSegment`. */
-  archive(segmentId: string, options?: RequestSignalOptions): Promise<unknown>;
+  archive(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `POST /segments/{id}/restore` → OpenAPI `restoreSegment`. */
-  restore(segmentId: string, options?: RequestSignalOptions): Promise<unknown>;
+  restore(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
 }
 
 export interface CreateIdentityTokenOptions {

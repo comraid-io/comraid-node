@@ -172,6 +172,36 @@ test("push.broadcast creates a Message for Segment, rules, or everyone", async (
 	assert.equal(calls[2].body.channel, "push");
 });
 
+test("push.previewAudience posts TargetingPreviewRequest to /messages/targeting/preview", async () => {
+	const { client, calls } = clientWithCapture();
+	const result = await client.push.previewAudience({
+		segment_id: "seg_sys_subscribed",
+		platforms: ["android", "ios"],
+		category: "promo",
+		idempotencyKey: "preview-1",
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(calls.length, 1);
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		idempotencyKey: "preview-1",
+		body: {
+			segment_id: "seg_sys_subscribed",
+			platforms: ["android", "ios"],
+			category: "promo",
+		},
+	});
+
+	await client.push.previewAudience({ everyone: true });
+	assert.deepEqual(calls[1], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		body: { everyone: true },
+	});
+});
+
 test("push.multiSend creates a Campaign with per-Contact Contents", async () => {
 	const { client, calls } = clientWithCapture();
 	await client.push.multiSend({
