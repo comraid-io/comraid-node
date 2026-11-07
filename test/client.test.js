@@ -82,3 +82,32 @@ test("supports an injected transport without API configuration", async () => {
 	assert.deepEqual(await client.request({ path: "/custom" }), { path: "/custom" });
 	assert.match(client.createIdempotencyKey(), /^[0-9a-f-]{36}$/);
 });
+
+test("sends FormData and Blob bodies as multipart without JSON encoding", async () => {
+	const captures = [];
+	const fetch = async (_url, init) => {
+		captures.push(init);
+		return new Response(JSON.stringify({ ok: true }), {
+			status: 200,
+			headers: { "content-type": "application/json" },
+		});
+	};
+	const transport = new FetchTransport({
+		apiKey: "secret",
+		baseUrl: "https://api.example.test",
+		fetch,
+		maxRetries: 0,
+	});
+
+	const form = new FormData();
+	form.append("file", new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" }), "a.jpg");
+	await transport.request({ method: "POST", path: "/media", body: form });
+
+	assert.equal(captures[0].body, form);
+	assert.equal(captures[0].headers.get("content-type"), null);
+
+	const blob = new Blob(["x"], { type: "application/octet-stream" });
+	await transport.request({ method: "POST", path: "/raw", body: blob });
+	assert.equal(captures[1].body, blob);
+	assert.equal(captures[1].headers.get("content-type"), null);
+});
