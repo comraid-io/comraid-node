@@ -1,6 +1,6 @@
 # `@comraid/node`
 
-Node.js client for the ComRaid API. Push Channel methods are thin clients over REST: **Single send** and **Broadcast** create **Messages** (`/messages`); on the push Channel those are **Notifications**. **Multi-send** creates a **Campaign** (`/campaigns`). Contacts are addressed by `external_user_id` via Endpoints / Subscriptions. The SDK sets `channel: push` and nests push Content under `content.push`.
+Node.js client for the ComRaid API. Push Channel methods are thin clients over REST: **Single send** and **Broadcast** create **Messages** (`/messages`); on the push Channel those are **Notifications**. A Notification reaches many Contacts; each Contact's copy is a **Delivery**. **Multi-send** creates a **Campaign** (`/campaigns`). Contacts are addressed by `external_user_id` via Endpoints / Subscriptions. The SDK sets `channel: push` and nests push Content under `content.push`.
 
 Canonical long-form docs (Install, Getting started, Method reference): [docs.comraid.io/sdks/node](https://docs.comraid.io/sdks/node). This README stays at method-reference parity with that page.
 
@@ -70,9 +70,32 @@ await comraid.contacts.create({
 await comraid.contacts.upsert("user_a", { locale: "en-US" });
 await comraid.attributes.upsert("user_a", { attributes: { seats: 3 } });
 
-// Message status / cancel
-const detail = await comraid.messages.get(messageId);
-await comraid.messages.cancel(messageId);
+// Notification status / cancel (REST /messages)
+const detail = await comraid.push.get(messageId);
+await comraid.push.cancel(messageId);
+
+// Drafts
+const draft = await comraid.push.drafts.create({
+  targeting: { everyone: true },
+  content: { title: "Later", body: "Save for review" },
+});
+const loaded = await comraid.push.get(draft.message_id);
+await comraid.push.drafts.update(draft.message_id, {
+  updated_at: loaded.updated_at,
+  targeting: { everyone: true },
+  content: { title: "Later", body: "Edited" },
+});
+await comraid.push.drafts.send(draft.message_id);
+
+// Campaigns
+await comraid.campaigns.get(campaignId);
+await comraid.campaigns.cancel(campaignId);
+
+// Opt-out / preferences
+await comraid.contacts.optOut("user_a", "push");
+await comraid.contacts.setPreferences("user_a", {
+  preferences: [{ category: "promo", channel: "push", enabled: false }],
+});
 
 // Segments (full CRUD + restore)
 const { segments } = await comraid.segments.list();
@@ -90,9 +113,10 @@ await comraid.segments.archive(created.segment_id);
 await comraid.segments.restore(created.segment_id);
 
 // Escape hatch — any OpenAPI path the SDK does not wrap
-const campaign = await comraid.request({
-  method: "GET",
-  path: `/campaigns/${campaignId}`,
+const preview = await comraid.request({
+  method: "POST",
+  path: "/messages/targeting/preview",
+  body: { everyone: true },
 });
 ```
 
@@ -227,7 +251,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `input.content` | `PushContent` | yes | Push Content. |
 | … | | | Same optional fields as `push.send` (`ttl`, `collapse_key`, `send_at` / `send_at_local`, …). |
 
-**Returns:** `Promise<MessageAccepted>` with `message_id` and status `preparing` (or `scheduled`). ComRaid builds the audience in the background, so there is no `delivery_count` and no 10,000-Contact cap. Read counts with `messages.get` once the status leaves `preparing`; an audience that matches nobody ends as `failed`.
+**Returns:** `Promise<MessageAccepted>` with `message_id` and status `preparing` (or `scheduled`). ComRaid builds the audience in the background, so there is no `delivery_count` and no 10,000-Contact cap. Read counts with `push.get` once the status leaves `preparing`; an audience that matches nobody ends as `failed`.
 
 #### `comraid.push.multiSend(input)` → OpenAPI `createCampaign`
 
@@ -263,25 +287,99 @@ await comraid.push.send({
 });
 ```
 
-### Messages
-
-#### `comraid.messages.get(messageId, options?)` → OpenAPI `getMessage`
+#### `comraid.push.get(messageId, options?)` → OpenAPI `getMessage`
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts.
+**Returns:** `Promise<MessageDetail>` — `status` is one of `draft`, `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. A Notification reaches many Contacts; each Contact's copy is a Delivery (see `deliveries` / `status_summary`).
 
-#### `comraid.messages.cancel(messageId, options?)` → OpenAPI `cancelMessage`
+#### `comraid.push.cancel(messageId, options?)` → OpenAPI `cancelMessage`
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageCancelled>`. Only a `scheduled` Message can be cancelled; any other status rejects with a 409 conflict.
+**Returns:** `Promise<MessageCancelled>`. Cancel works while the Message is `scheduled`, `preparing`, or `processing`; finished statuses reject with a 409 conflict. Cancel does not apply to Drafts.
+
+### Drafts
+
+Draft helpers set `draft: true` / nest Content like other push methods. REST paths stay under `/messages`.
+
+#### `comraid.push.drafts.create(input)` → OpenAPI `createMessage` (Draft)
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input.content` | `PushContent` | yes | Title and body required for Drafts. |
+| `input.targeting` | `TargetingSpec` | no | Everyone or `segment_id` (audience may be empty). |
+| `input.idempotencyKey` | `string` | no | Idempotency key. |
+| `input.signal` | `AbortSignal` | no | Cancellation. |
+| … | | | Same optional Message fields as `push.broadcast` (`category`, `ttl`, …). |
+
+**Returns:** `Promise<MessageAccepted>` with status `draft`.
+
+#### `comraid.push.drafts.update(messageId, input)` → OpenAPI `updateDraft`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | yes | Draft Message id. |
+| `input.updated_at` | `string` | yes | Optimistic concurrency token from `push.get` / list. |
+| `input.content` | `PushContent` | yes | Push Content. |
+| `input.targeting` | `TargetingSpec` | no | Audience. |
+| `input.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MessageDetail>`. Stale `updated_at` returns 409.
+
+#### `comraid.push.drafts.list(options?)` → OpenAPI `listMessages`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `options.limit` | `number` | no | Page size (1–100). |
+| `options.offset` | `number` | no | Offset. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MessageList>` for `status=draft` only.
+
+#### `comraid.push.drafts.send(messageId, options?)` → OpenAPI `sendDraft`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | yes | Draft Message id. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MessageAccepted>` after full validation; same row moves to `scheduled` / `preparing`.
+
+#### `comraid.push.drafts.archive(messageId, options?)` → OpenAPI `archiveDraft`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | yes | Draft Message id. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<DraftArchived>`.
+
+### Campaigns
+
+#### `comraid.campaigns.get(campaignId, options?)` → OpenAPI `getCampaign`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `campaignId` | `string` | yes | Campaign id. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<CampaignDetail>` including child Messages and `message_counts`.
+
+#### `comraid.campaigns.cancel(campaignId, options?)` → OpenAPI `cancelCampaign`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `campaignId` | `string` | yes | Campaign id. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<CampaignCancelled>`. Cancels each child Message that is `scheduled`, `preparing`, or `processing`.
 
 ### Contacts and attributes
 
@@ -308,6 +406,40 @@ await comraid.push.send({
 | `input` | `ContactUpsert` + keys | no | Partial Contact fields (`name`, `locale`, `timezone`, `metadata`, `attributes`) plus optional `idempotencyKey` / `signal`. |
 
 **Returns:** `Promise<ContactResponse>`
+
+#### `comraid.contacts.optOut(externalUserId, channel, options?)` → OpenAPI `putContactChannelOptOut`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `externalUserId` | `string` | yes | External user ID. |
+| `channel` | `"push"` | yes | Channel to opt out of (V1: `push` only). |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<ContactOptOutResponse>` with `opted_out: true`.
+
+#### `comraid.contacts.optIn(externalUserId, channel, options?)` → OpenAPI `putContactChannelOptOut`
+
+Same parameters as `optOut`. Clears the Channel opt-out (`opted_out: false`).
+
+#### `comraid.contacts.getPreferences(externalUserId, options?)` → OpenAPI `listContactPreferences`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `externalUserId` | `string` | yes | External user ID. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<ContactPreferencesResponse>`.
+
+#### `comraid.contacts.setPreferences(externalUserId, input)` → OpenAPI `upsertContactPreferences`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `externalUserId` | `string` | yes | External user ID. |
+| `input.preferences` | `ContactPreference[]` | yes | Category / channel / enabled rows. |
+| `input.idempotencyKey` | `string` | no | Idempotency key. |
+| `input.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<ContactPreferencesResponse>`.
 
 #### `comraid.contacts.endpoints.register(input)` → OpenAPI `registerEndpoint`
 
@@ -463,12 +595,8 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 |-----|-------------|----------------|
 | Ops | `healthz` | `GET /healthz` |
 | Ops | `readyz` | `GET /readyz` |
-| Contacts | `listContactPreferences` | `GET /contacts/{external_user_id}/preferences` |
-| Contacts | `upsertContactPreferences` | `PUT /contacts/{external_user_id}/preferences` |
 | Contacts | `listContactOptOuts` | `GET /contacts/{external_user_id}/opt-outs` |
-| Contacts | `putContactChannelOptOut` | `PUT /contacts/{external_user_id}/opt-outs/{channel}` |
 | Messages | `previewTargeting` | `POST /messages/targeting/preview` |
-| Campaigns | `getCampaign` | `GET /campaigns/{id}` |
 | Deliveries | `markDeliveryDelivered` | `POST /deliveries/{id}/delivered` |
 | Deliveries | `markDeliveryOpened` | `POST /deliveries/{id}/opened` |
 | Mobile | `mobileListCategories` | `GET /mobile/notification-categories` |
@@ -481,4 +609,4 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Mobile | `mobileSubscriptionOptIn` | `POST /mobile/subscriptions/{id}/opt-in` |
 | Mobile | `mobileSubscriptionUpsertAttributes` | `PUT /mobile/subscriptions/{id}/attributes` |
 
-Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `createMessage` (via `push.send` / `push.broadcast`), `getMessage`, `cancelMessage`, `createCampaign` (via `push.multiSend`), `uploadMedia` (via `push.uploadMedia`), and all six Segment operations.
+Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `listContactPreferences` / `upsertContactPreferences` (via `contacts.getPreferences` / `setPreferences`), `putContactChannelOptOut` (via `contacts.optOut` / `optIn`), `createMessage` (via `push.send` / `push.broadcast` / `push.drafts.create`), `listMessages` / `updateDraft` / `sendDraft` / `archiveDraft` (via `push.drafts.*`), `getMessage` / `cancelMessage` (via `push.get` / `push.cancel`), `createCampaign` (via `push.multiSend`), `getCampaign` / `cancelCampaign` (via `campaigns.get` / `cancel`), `uploadMedia` (via `push.uploadMedia`), and all six Segment operations.
