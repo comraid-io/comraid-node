@@ -167,7 +167,7 @@ Generic authenticated request. Use for OpenAPI operations the SDK does not wrap 
 | `options.method` | `HttpMethod` | no | Default `GET`. |
 | `options.path` | `` `/${string}` `` | yes | Path under `baseUrl` (must start with `/`). |
 | `options.query` | `Record<string, QueryValue>` | no | Query string values. |
-| `options.body` | `unknown` | no | JSON-encoded request body. |
+| `options.body` | `unknown` | no | JSON body, or `FormData` / `Blob` for multipart (not JSON-encoded). |
 | `options.headers` | `HeadersInit` | no | Extra headers (Authorization is set by the transport). |
 | `options.idempotencyKey` | `string` | no | Sent as `Idempotency-Key`. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
@@ -176,7 +176,7 @@ Generic authenticated request. Use for OpenAPI operations the SDK does not wrap 
 
 #### `FetchTransport`
 
-Default HTTP transport: bearer auth, JSON encode/decode, timeouts, cancellation, bounded retries, and `Retry-After` handling.
+Default HTTP transport: bearer auth, JSON encode/decode (or multipart for `FormData` / `Blob`), timeouts, cancellation, bounded retries, and `Retry-After` handling.
 
 ```ts
 new FetchTransport(options: FetchTransportOptions)
@@ -239,6 +239,29 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `input.signal` | `AbortSignal` | no | Cancellation. |
 
 **Returns:** `Promise<CampaignAccepted>` (`campaign_id`, per-Message statuses, …).
+
+#### `comraid.push.uploadMedia(file, options)` → OpenAPI `uploadMedia`
+
+Multipart upload of a JPEG or PNG (max 1 MiB) for `content.push.image_url`. The client checks size and type; the server remains the authority.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | `Buffer \| Uint8Array \| Blob \| string \| Readable` | yes | Image bytes, Blob, filesystem path, or Readable stream. |
+| `options.contentType` | `"image/jpeg" \| "image/png"` | yes | Declared MIME type. |
+| `options.idempotencyKey` | `string` | no | Idempotency key. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MediaUploadResponse>` (`asset_id`, public `url`).
+
+```js
+const { url } = await comraid.push.uploadMedia(imageBuffer, {
+  contentType: "image/png",
+});
+await comraid.push.send({
+  to: { external_user_ids: ["user_a"] },
+  content: { title: "Hi", body: "With image", image_url: url },
+});
+```
 
 ### Messages
 
@@ -445,7 +468,6 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Contacts | `listContactOptOuts` | `GET /contacts/{external_user_id}/opt-outs` |
 | Contacts | `putContactChannelOptOut` | `PUT /contacts/{external_user_id}/opt-outs/{channel}` |
 | Messages | `previewTargeting` | `POST /messages/targeting/preview` |
-| Media | `uploadMedia` | `POST /media` |
 | Campaigns | `getCampaign` | `GET /campaigns/{id}` |
 | Deliveries | `markDeliveryDelivered` | `POST /deliveries/{id}/delivered` |
 | Deliveries | `markDeliveryOpened` | `POST /deliveries/{id}/opened` |
@@ -459,4 +481,4 @@ These public OpenAPI `operationId`s have **no** dedicated helper. Call them with
 | Mobile | `mobileSubscriptionOptIn` | `POST /mobile/subscriptions/{id}/opt-in` |
 | Mobile | `mobileSubscriptionUpsertAttributes` | `PUT /mobile/subscriptions/{id}/attributes` |
 
-Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `createMessage` (via `push.send` / `push.broadcast`), `getMessage`, `cancelMessage`, `createCampaign` (via `push.multiSend`), and all six Segment operations.
+Wrapped elsewhere in this package: `createContact`, `upsertContact`, `upsertContactAttributes`, `createMessage` (via `push.send` / `push.broadcast`), `getMessage`, `cancelMessage`, `createCampaign` (via `push.multiSend`), `uploadMedia` (via `push.uploadMedia`), and all six Segment operations.

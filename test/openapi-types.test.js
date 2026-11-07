@@ -21,6 +21,7 @@ const REQUIRED_SCHEMA_NAMES = [
 	"PushAction",
 	"MessageAccepted",
 	"CampaignAccepted",
+	"MediaUploadResponse",
 ];
 
 const REQUIRED_OPERATION_IDS = [
@@ -38,6 +39,7 @@ const REQUIRED_OPERATION_IDS = [
 	"updateSegment",
 	"archiveSegment",
 	"restoreSegment",
+	"uploadMedia",
 ];
 
 function resolveOpenApiPath() {

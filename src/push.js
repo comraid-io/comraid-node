@@ -1,3 +1,4 @@
+import { uploadMedia } from "./media.js";
 import { requestOptions } from "./request-options.js";
 
 const CHANNEL = "push";
@@ -8,6 +9,9 @@ const CHANNEL = "push";
  */
 export function createPushApi(client) {
 	return {
+		uploadMedia(file, options) {
+			return uploadMedia(client, file, options);
+		},
 		send(input) {
 			assertSendTarget(input, "to", "push.send requires to.external_user_ids");
 			if (input.to.endpoint_ids != null) {

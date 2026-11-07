@@ -5,6 +5,7 @@ export interface RequestOptions<TBody = unknown> {
   method?: HttpMethod;
   path: `/${string}`;
   query?: Record<string, QueryValue>;
+  /** JSON value, or `FormData` / `Blob` for multipart upload bodies. */
   body?: TBody;
   headers?: HeadersInit;
   idempotencyKey?: string;
@@ -317,7 +318,29 @@ export interface PushMultiSendInput {
   signal?: AbortSignal;
 }
 
+/** OpenAPI `MediaUploadResponse` (POST /media). */
+export interface MediaUploadResponse {
+  asset_id: string;
+  /** Public URL for `content.push.image_url`. */
+  url: string;
+}
+
+export type PushUploadMediaFile = Buffer | Uint8Array | Blob | string | NodeJS.ReadableStream;
+
+export interface PushUploadMediaOptions {
+  /** Declared MIME type; must be `image/jpeg` or `image/png`. */
+  contentType: "image/jpeg" | "image/png";
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
 export interface PushApi {
+  /**
+   * Upload a JPEG/PNG (max 1 MiB) → OpenAPI `uploadMedia` (`POST /media`).
+   * Accepts Buffer, Blob, filesystem path, or Readable stream. Client checks
+   * size and type; the server remains the authority.
+   */
+  uploadMedia(file: PushUploadMediaFile, options: PushUploadMediaOptions): Promise<MediaUploadResponse>;
   /** Single send → `POST /messages` with `to.external_user_ids`. */
   send(input: PushSendInput): Promise<MessageAccepted>;
   /** Broadcast → `POST /messages` with `targeting`. */
