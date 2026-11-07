@@ -239,3 +239,28 @@ test("push.multiSend passes data_only on child Contents", async () => {
 	assert.equal(calls[0].path, "/campaigns");
 	assert.deepEqual(calls[0].body.recipients[0].content.push, { data_only: true });
 });
+
+test("push.listDeliveries lists Message Deliveries with filters", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.listDeliveries("11111111-1111-4111-8111-111111111111", {
+		limit: 2,
+		cursor: "abc",
+		status: "failed",
+		platform: "ios",
+		signal: AbortSignal.timeout(5_000),
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/messages/11111111-1111-4111-8111-111111111111/deliveries",
+		query: { limit: 2, cursor: "abc", status: "failed", platform: "ios" },
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("push.listDeliveries requires a message id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.listDeliveries(""), /push\.listDeliveries requires a message id/);
+	assert.equal(calls.length, 0);
+});
