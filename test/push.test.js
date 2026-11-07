@@ -1,0 +1,401 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ComRaid } from "../src/index.js";
+
+function clientWithCapture() {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { ok: true, echo: options };
+			},
+		},
+	});
+	return { client, calls };
+}
+
+test("push.send creates a Single-send Message by External user ID", async () => {
+	const { client, calls } = clientWithCapture();
+	const result = await client.push.send({
+		to: { external_user_ids: ["user_a", "user_b"] },
+		content: { title: "Hello", body: "World", image_url: "https://cdn.example/img.png" },
+		category: "transactional",
+		idempotencyKey: "idem-1",
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(calls.length, 1);
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages",
+		idempotencyKey: "idem-1",
+		body: {
+			channel: "push",
+			to: { external_user_ids: ["user_a", "user_b"] },
+			category: "transactional",
+			content: {
+				push: { title: "Hello", body: "World", image_url: "https://cdn.example/img.png" },
+			},
+		},
+	});
+});
+
+test("push.send rejects endpoint_ids addressing", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(
+		() =>
+			client.push.send({
+				to: { endpoint_ids: ["2344b756-df66-4311-b3a9-433fd48e8e59"] },
+				content: { title: "Anon", body: "Endpoint target" },
+			}),
+		/endpoint_ids/,
+	);
+	assert.equal(calls.length, 0);
+});
+
+test("push.send and push.broadcast pass through ttl, collapse_key, and send_at_local", async () => {
+	const { client, calls } = clientWithCapture();
+
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		content: { title: "T", body: "B" },
+		ttl: 3600,
+		collapse_key: "order-42",
+		send_at_local: "2026-10-22T09:00:00",
+	});
+	assert.equal(calls[0].body.ttl, 3600);
+	assert.equal(calls[0].body.collapse_key, "order-42");
+	assert.equal(calls[0].body.send_at_local, "2026-10-22T09:00:00");
+
+	await client.push.broadcast({
+		targeting: { everyone: true },
+		content: { title: "T", body: "B" },
+		ttl: 120,
+		collapse_key: "promo",
+		send_at_local: "2026-10-23T08:00:00",
+	});
+	assert.equal(calls[1].body.ttl, 120);
+	assert.equal(calls[1].body.collapse_key, "promo");
+	assert.equal(calls[1].body.send_at_local, "2026-10-23T08:00:00");
+});
+
+test("push.multiSend passes through per-recipient ttl and collapse_key", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.multiSend({
+		recipients: [
+			{
+				external_user_id: "user_a",
+				content: { title: "Hi", body: "A" },
+				ttl: 600,
+				collapse_key: "welcome",
+			},
+		],
+	});
+
+	assert.equal(calls[0].body.recipients[0].ttl, 600);
+	assert.equal(calls[0].body.recipients[0].collapse_key, "welcome");
+});
+
+test("push.send always sets channel to push", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		content: { title: "T", body: "B" },
+	});
+
+	assert.equal(calls[0].body.channel, "push");
+});
+
+test("push.send and push.multiSend pass through rich OpenAPI push fields", async () => {
+	const { client, calls } = clientWithCapture();
+	const rich = {
+		title: "Order shipped",
+		body: "Your package is on the way",
+		deep_link: "myapp://orders/42",
+		sound: "shipping",
+		subtitle: "Tracking update",
+		badge: 3,
+		thread_id: "orders",
+	};
+
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		content: rich,
+	});
+	assert.deepEqual(calls[0].body.content.push, rich);
+
+	await client.push.multiSend({
+		recipients: [{ external_user_id: "user_a", content: rich }],
+	});
+	assert.deepEqual(calls[1].body.recipients[0].content.push, rich);
+});
+
+test("push.send and push.broadcast reject the wrong audience shape", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(
+		() => client.push.send({ targeting: { everyone: true }, content: { title: "T", body: "B" } }),
+		/push\.send requires to\.external_user_ids/,
+	);
+	assert.throws(
+		() => client.push.broadcast({ to: { external_user_ids: ["a"] }, content: { title: "T", body: "B" } }),
+		/push\.broadcast requires targeting/,
+	);
+	assert.equal(calls.length, 0);
+});
+
+test("push.broadcast creates a Message for Segment, rules, or everyone", async () => {
+	const { client, calls } = clientWithCapture();
+
+	await client.push.broadcast({
+		targeting: { everyone: true },
+		content: { title: "All", body: "Hello everyone" },
+	});
+	assert.deepEqual(calls[0].body, {
+		channel: "push",
+		targeting: { everyone: true },
+		content: { push: { title: "All", body: "Hello everyone" } },
+	});
+
+	await client.push.broadcast({
+		targeting: { segment_id: "seg_sys_subscribed" },
+		content: { title: "Seg", body: "Segment send" },
+	});
+	assert.equal(calls[1].path, "/messages");
+	assert.deepEqual(calls[1].body.targeting, { segment_id: "seg_sys_subscribed" });
+
+	await client.push.broadcast({
+		targeting: { rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] } },
+		content: { title: "Rules", body: "Ad-hoc" },
+	});
+	assert.deepEqual(calls[2].body.targeting.rules.operator, "and");
+	assert.equal(calls[2].body.channel, "push");
+});
+
+test("push.previewAudience posts TargetingPreviewRequest to /messages/targeting/preview", async () => {
+	const { client, calls } = clientWithCapture();
+	const result = await client.push.previewAudience({
+		segment_id: "seg_sys_subscribed",
+		platforms: ["android", "ios"],
+		category: "promo",
+		idempotencyKey: "preview-1",
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(calls.length, 1);
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		idempotencyKey: "preview-1",
+		body: {
+			segment_id: "seg_sys_subscribed",
+			platforms: ["android", "ios"],
+			category: "promo",
+		},
+	});
+
+	await client.push.previewAudience({ everyone: true });
+	assert.deepEqual(calls[1], {
+		method: "POST",
+		path: "/messages/targeting/preview",
+		body: { everyone: true },
+	});
+});
+
+test("push.multiSend creates a Campaign with per-Contact Contents", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.multiSend({
+		name: "Welcome batch",
+		recipients: [
+			{ external_user_id: "user_a", content: { title: "Hi A", body: "Welcome A" } },
+			{ external_user_id: "user_b", content: { title: "Hi B", body: "Welcome B" }, priority: "high" },
+		],
+		idempotencyKey: "camp-1",
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/campaigns",
+		idempotencyKey: "camp-1",
+		body: {
+			channel: "push",
+			name: "Welcome batch",
+			recipients: [
+				{ external_user_id: "user_a", content: { push: { title: "Hi A", body: "Welcome A" } } },
+				{ external_user_id: "user_b", priority: "high", content: { push: { title: "Hi B", body: "Welcome B" } } },
+			],
+		},
+	});
+});
+
+test("push.multiSend rejects an empty recipients list", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.multiSend({ recipients: [] }), /non-empty recipients/);
+	assert.equal(calls.length, 0);
+});
+
+test("push.send accepts data_only Content with optional title/body", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.send({
+		to: { external_user_ids: ["user_a"] },
+		data: { order_id: "42" },
+		content: {
+			data_only: true,
+			title: "Rematch?",
+			body: "Play again",
+			actions: [{ id: "accept", text: "Accept" }],
+		},
+	});
+	assert.deepEqual(calls[0].body.content.push, {
+		data_only: true,
+		title: "Rematch?",
+		body: "Play again",
+		actions: [{ id: "accept", text: "Accept" }],
+	});
+	assert.deepEqual(calls[0].body.data, { order_id: "42" });
+});
+
+test("push.multiSend passes data_only on child Contents", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.multiSend({
+		recipients: [
+			{
+				external_user_id: "user_a",
+				data: { k: "v" },
+				content: { data_only: true },
+			},
+		],
+	});
+	assert.equal(calls[0].path, "/campaigns");
+	assert.deepEqual(calls[0].body.recipients[0].content.push, { data_only: true });
+});
+
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+test("push.uploadMedia posts multipart file to /media and returns the media URL", async () => {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return {
+					asset_id: "33333333-3333-4333-8333-333333333333",
+					url: "https://cdn.example.com/images/a.png",
+				};
+			},
+		},
+	});
+
+	const result = await client.push.uploadMedia(PNG_MAGIC, {
+		contentType: "image/png",
+		idempotencyKey: "media-1",
+	});
+
+	assert.equal(result.url, "https://cdn.example.com/images/a.png");
+	assert.equal(result.asset_id, "33333333-3333-4333-8333-333333333333");
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0].method, "POST");
+	assert.equal(calls[0].path, "/media");
+	assert.equal(calls[0].idempotencyKey, "media-1");
+	assert.ok(calls[0].body instanceof FormData);
+	const file = calls[0].body.get("file");
+	assert.ok(file instanceof Blob);
+	assert.equal(file.type, "image/png");
+});
+
+test("push.uploadMedia accepts Buffer, Blob, and a file path stream", async () => {
+	const { createReadStream } = await import("node:fs");
+	const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { join } = await import("node:path");
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { asset_id: "a", url: "https://cdn.example/x.jpg" };
+			},
+		},
+	});
+
+	await client.push.uploadMedia(JPEG_MAGIC, { contentType: "image/jpeg" });
+	assert.ok(calls[0].body instanceof FormData);
+
+	await client.push.uploadMedia(new Blob([JPEG_MAGIC], { type: "image/jpeg" }), {
+		contentType: "image/jpeg",
+	});
+	assert.ok(calls[1].body instanceof FormData);
+
+	const dir = await mkdtemp(join(tmpdir(), "comraid-media-"));
+	const filePath = join(dir, "pic.jpg");
+	try {
+		await writeFile(filePath, JPEG_MAGIC);
+		await client.push.uploadMedia(filePath, { contentType: "image/jpeg" });
+		assert.ok(calls[2].body instanceof FormData);
+
+		await client.push.uploadMedia(createReadStream(filePath), { contentType: "image/jpeg" });
+		assert.ok(calls[3].body instanceof FormData);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("push.uploadMedia rejects oversized and non-JPEG/PNG uploads client-side", async () => {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { asset_id: "a", url: "https://cdn.example/x.jpg" };
+			},
+		},
+	});
+
+	const tooLarge = Buffer.alloc((1 << 20) + 1, 0xff);
+	tooLarge[0] = 0xff;
+	tooLarge[1] = 0xd8;
+	tooLarge[2] = 0xff;
+	await assert.rejects(
+		() => client.push.uploadMedia(tooLarge, { contentType: "image/jpeg" }),
+		/1\s*MiB|1MB|too large/i,
+	);
+
+	await assert.rejects(
+		() => client.push.uploadMedia(Buffer.from("not-an-image"), { contentType: "image/gif" }),
+		/jpeg|png/i,
+	);
+
+	await assert.rejects(
+		() => client.push.uploadMedia(Buffer.from("hello"), { contentType: "image/png" }),
+		/jpeg|png|image/i,
+	);
+
+	assert.equal(calls.length, 0);
+});
+
+test("push.listDeliveries lists Message Deliveries with filters", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.listDeliveries("11111111-1111-4111-8111-111111111111", {
+		limit: 2,
+		cursor: "abc",
+		status: "failed",
+		platform: "ios",
+		signal: AbortSignal.timeout(5_000),
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/messages/11111111-1111-4111-8111-111111111111/deliveries",
+		query: { limit: 2, cursor: "abc", status: "failed", platform: "ios" },
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("push.listDeliveries requires a message id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.listDeliveries(""), /push\.listDeliveries requires a message id/);
+	assert.equal(calls.length, 0);
+});
+

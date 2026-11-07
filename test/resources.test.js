@@ -1,0 +1,439 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ComRaid } from "../src/index.js";
+
+function clientWithCapture() {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { ok: true, echo: options };
+			},
+		},
+	});
+	return { client, calls };
+}
+
+test("push.get fetches Message detail by id", async () => {
+	const { client, calls } = clientWithCapture();
+	const result = await client.push.get("11111111-1111-4111-8111-111111111111", {
+		signal: AbortSignal.timeout(5_000),
+	});
+
+	assert.equal(result.ok, true);
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/messages/11111111-1111-4111-8111-111111111111",
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("push.cancel posts cancel for a Message id", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.cancel("11111111-1111-4111-8111-111111111111");
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages/11111111-1111-4111-8111-111111111111/cancel",
+	});
+});
+
+test("push.get and push.cancel require a message id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.get(""), /push\.get requires a message id/);
+	assert.throws(() => client.push.cancel(null), /push\.cancel requires a message id/);
+	assert.equal(calls.length, 0);
+});
+
+test("ComRaid has no top-level messages group", () => {
+	const { client } = clientWithCapture();
+	assert.equal(client.messages, undefined);
+});
+
+test("push.drafts.create posts a Draft Broadcast", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.drafts.create({
+		targeting: { everyone: true },
+		content: { title: "Draft", body: "Save for later" },
+		category: "promo",
+		idempotencyKey: "draft-1",
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/messages",
+		idempotencyKey: "draft-1",
+		body: {
+			draft: true,
+			channel: "push",
+			targeting: { everyone: true },
+			category: "promo",
+			content: { push: { title: "Draft", body: "Save for later" } },
+		},
+	});
+});
+
+test("push.drafts.update patches a Draft with updated_at", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "11111111-1111-4111-8111-111111111111";
+	await client.push.drafts.update(id, {
+		updated_at: "2026-11-07T12:00:00Z",
+		targeting: { segment_id: "seg_sys_subscribed" },
+		content: { title: "Edited", body: "New body" },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "PATCH",
+		path: `/messages/${id}`,
+		body: {
+			updated_at: "2026-11-07T12:00:00Z",
+			channel: "push",
+			targeting: { segment_id: "seg_sys_subscribed" },
+			content: { push: { title: "Edited", body: "New body" } },
+		},
+	});
+});
+
+test("push.drafts.list queries status=draft", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.push.drafts.list({ limit: 20, offset: 5 });
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/messages",
+		query: { status: "draft", limit: 20, offset: 5 },
+	});
+});
+
+test("push.drafts.send and archive use Draft paths", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "11111111-1111-4111-8111-111111111111";
+	await client.push.drafts.send(id);
+	await client.push.drafts.archive(id);
+
+	assert.deepEqual(
+		calls.map((c) => ({ method: c.method, path: c.path })),
+		[
+			{ method: "POST", path: `/messages/${id}/send` },
+			{ method: "DELETE", path: `/messages/${id}` },
+		],
+	);
+});
+
+test("push.drafts methods require ids and updated_at", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.push.drafts.update("", { updated_at: "t", content: { title: "T", body: "B" } }), /push\.drafts\.update requires a message id/);
+	assert.throws(
+		() => client.push.drafts.update("11111111-1111-4111-8111-111111111111", { content: { title: "T", body: "B" } }),
+		/push\.drafts\.update requires updated_at/,
+	);
+	assert.throws(() => client.push.drafts.send(""), /push\.drafts\.send requires a message id/);
+	assert.throws(() => client.push.drafts.archive(null), /push\.drafts\.archive requires a message id/);
+	assert.equal(calls.length, 0);
+});
+
+test("campaigns.get fetches Campaign detail by id", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "0a1b2c3d-4e5f-6789-abcd-ef0123456789";
+	await client.campaigns.get(id);
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: `/campaigns/${id}`,
+	});
+});
+
+test("campaigns.cancel posts cancel for a Campaign id", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "0a1b2c3d-4e5f-6789-abcd-ef0123456789";
+	await client.campaigns.cancel(id);
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: `/campaigns/${id}/cancel`,
+	});
+});
+
+test("campaigns.get and campaigns.cancel require a campaign id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.campaigns.get(""), /campaigns\.get requires a campaign id/);
+	assert.throws(() => client.campaigns.cancel(null), /campaigns\.cancel requires a campaign id/);
+	assert.equal(calls.length, 0);
+});
+
+test("contacts.optOut and optIn put channel opt-out state", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.optOut("user/with spaces", "push");
+	await client.contacts.optIn("user_a", "push");
+
+	assert.deepEqual(calls[0], {
+		method: "PUT",
+		path: "/contacts/user%2Fwith%20spaces/opt-outs/push",
+		body: { opted_out: true },
+	});
+	assert.deepEqual(calls[1], {
+		method: "PUT",
+		path: "/contacts/user_a/opt-outs/push",
+		body: { opted_out: false },
+	});
+});
+
+test("contacts.getPreferences and setPreferences use preferences paths", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.getPreferences("user_a");
+	await client.contacts.setPreferences("user_a", {
+		preferences: [{ category: "promo", channel: "push", enabled: false }],
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/contacts/user_a/preferences",
+	});
+	assert.deepEqual(calls[1], {
+		method: "PUT",
+		path: "/contacts/user_a/preferences",
+		body: {
+			preferences: [{ category: "promo", channel: "push", enabled: false }],
+		},
+	});
+});
+
+test("contacts opt-out and preferences methods require ids and channel", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.contacts.optOut("", "push"), /contacts\.optOut requires external_user_id/);
+	assert.throws(() => client.contacts.optOut("user_a", ""), /contacts\.optOut requires channel/);
+	assert.throws(() => client.contacts.optIn(null, "push"), /contacts\.optIn requires external_user_id/);
+	assert.throws(() => client.contacts.getPreferences(""), /contacts\.getPreferences requires external_user_id/);
+	assert.throws(() => client.contacts.setPreferences("", { preferences: [] }), /contacts\.setPreferences requires external_user_id/);
+	assert.throws(
+		() => client.contacts.setPreferences("user_a", { preferences: null }),
+		/contacts\.setPreferences requires preferences/,
+	);
+	assert.equal(calls.length, 0);
+});
+
+test("contacts.create posts ContactCreate", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.create({
+		external_user_id: "user_a",
+		name: "Ada",
+		attributes: { plan: "pro" },
+		idempotencyKey: "contact-1",
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/contacts",
+		idempotencyKey: "contact-1",
+		body: {
+			external_user_id: "user_a",
+			name: "Ada",
+			attributes: { plan: "pro" },
+		},
+	});
+});
+
+test("contacts.upsert puts ContactUpsert by External user ID", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.upsert("user/with spaces", {
+		locale: "en-US",
+		timezone: "America/New_York",
+		attributes: { plan: "free" },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "PUT",
+		path: "/contacts/user%2Fwith%20spaces",
+		body: {
+			locale: "en-US",
+			timezone: "America/New_York",
+			attributes: { plan: "free" },
+		},
+	});
+});
+
+test("contacts.create requires external_user_id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.contacts.create({ name: "Ada" }), /contacts\.create requires external_user_id/);
+	assert.equal(calls.length, 0);
+});
+
+test("contacts.upsert requires external_user_id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.contacts.upsert("", { name: "Ada" }), /contacts\.upsert requires external_user_id/);
+	assert.equal(calls.length, 0);
+});
+
+test("attributes.upsert puts contact attributes by External user ID", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.attributes.upsert("user_a", {
+		attributes: { plan: "pro", seats: 3 },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "PUT",
+		path: "/contacts/user_a/attributes",
+		body: { attributes: { plan: "pro", seats: 3 } },
+	});
+});
+
+test("attributes.upsert forwards null to remove an Attribute", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.attributes.upsert("user_a", {
+		attributes: { plan: null },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "PUT",
+		path: "/contacts/user_a/attributes",
+		body: { attributes: { plan: null } },
+	});
+});
+
+test("attributes.upsert requires external_user_id and attributes object", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.attributes.upsert("", { attributes: {} }), /attributes\.upsert requires external_user_id/);
+	assert.throws(
+		() => client.attributes.upsert("user_a", { attributes: null }),
+		/attributes\.upsert requires attributes/,
+	);
+	assert.equal(calls.length, 0);
+});
+
+test("segments.list gets active Segments", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.segments.list();
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/segments",
+	});
+});
+
+test("segments.create posts SegmentCreate", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.segments.create({
+		name: "Pro users",
+		description: "Paid plan",
+		rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/segments",
+		body: {
+			name: "Pro users",
+			description: "Paid plan",
+			rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] },
+		},
+	});
+});
+
+test("segments.get / update / archive / restore use Segment id paths", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+	await client.segments.get(id);
+	await client.segments.update(id, {
+		name: "Renamed",
+		rules: { operator: "or", conditions: [{ field: "attr.plan", op: "eq", value: "free" }] },
+	});
+	await client.segments.archive(id);
+	await client.segments.restore(id);
+
+	assert.deepEqual(
+		calls.map((c) => ({ method: c.method, path: c.path })),
+		[
+			{ method: "GET", path: `/segments/${id}` },
+			{ method: "PUT", path: `/segments/${id}` },
+			{ method: "DELETE", path: `/segments/${id}` },
+			{ method: "POST", path: `/segments/${id}/restore` },
+		],
+	);
+	assert.deepEqual(calls[1].body, {
+		name: "Renamed",
+		rules: { operator: "or", conditions: [{ field: "attr.plan", op: "eq", value: "free" }] },
+	});
+});
+
+test("segments.create requires name and rules", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.segments.create({ rules: { operator: "and", conditions: [] } }), /segments\.create requires name/);
+	assert.throws(() => client.segments.create({ name: "X" }), /segments\.create requires rules/);
+	assert.equal(calls.length, 0);
+});
+
+test("segments methods require a segment id", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(() => client.segments.get(""), /segments\.get requires a segment id/);
+	assert.throws(() => client.segments.update(null, { name: "X", rules: { operator: "and", conditions: [] } }), /segments\.update requires a segment id/);
+	assert.throws(() => client.segments.archive(undefined), /segments\.archive requires a segment id/);
+	assert.throws(() => client.segments.restore(""), /segments\.restore requires a segment id/);
+	assert.equal(calls.length, 0);
+});
+
+test("contacts.endpoints.register posts EndpointCreate under the Contact", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.endpoints.register({
+		external_user_id: "user/with spaces",
+		address: "fcm-token-1",
+		platform: "android",
+		provider: "fcm",
+		idempotencyKey: "ep-1",
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "POST",
+		path: "/contacts/user%2Fwith%20spaces/endpoints",
+		idempotencyKey: "ep-1",
+		body: {
+			address: "fcm-token-1",
+			platform: "android",
+			provider: "fcm",
+		},
+	});
+});
+
+test("contacts.endpoints.deactivate deletes by endpoint id", async () => {
+	const { client, calls } = clientWithCapture();
+	const id = "11111111-1111-4111-8111-111111111111";
+	await client.contacts.endpoints.deactivate(id, { signal: AbortSignal.timeout(5_000) });
+
+	assert.deepEqual(calls[0], {
+		method: "DELETE",
+		path: `/endpoints/${id}`,
+		signal: calls[0].signal,
+	});
+	assert.ok(calls[0].signal instanceof AbortSignal);
+});
+
+test("contacts.endpoints.list gets endpoints for an External user ID", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.contacts.endpoints.list("user_a");
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/contacts/user_a/endpoints",
+	});
+});
+
+test("contacts.endpoints methods require ids and EndpointCreate fields", () => {
+	const { client, calls } = clientWithCapture();
+	assert.throws(
+		() => client.contacts.endpoints.register({ address: "t", platform: "android" }),
+		/contacts\.endpoints\.register requires external_user_id/,
+	);
+	assert.throws(
+		() => client.contacts.endpoints.register({ external_user_id: "u", platform: "android" }),
+		/contacts\.endpoints\.register requires address/,
+	);
+	assert.throws(
+		() => client.contacts.endpoints.register({ external_user_id: "u", address: "t" }),
+		/contacts\.endpoints\.register requires platform/,
+	);
+	assert.throws(() => client.contacts.endpoints.deactivate(""), /contacts\.endpoints\.deactivate requires an endpoint id/);
+	assert.throws(() => client.contacts.endpoints.list(""), /contacts\.endpoints\.list requires external_user_id/);
+	assert.equal(calls.length, 0);
+});
