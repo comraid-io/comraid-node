@@ -2,6 +2,7 @@ import { encodePathSegment, requestOptions, requireNonEmptyString } from "./requ
 
 /**
  * Contact attribute methods — OpenAPI `PUT /contacts/{external_user_id}/attributes`.
+ * A `null` attribute value removes that Attribute on the server.
  */
 export function createAttributesApi(client) {
 	return {

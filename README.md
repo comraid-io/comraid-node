@@ -346,7 +346,7 @@ await comraid.contacts.endpoints.register({
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `externalUserId` | `string` | yes | External user ID. |
-| `input.attributes` | `Record<string, unknown>` | yes | Attribute map to upsert. |
+| `input.attributes` | `Record<string, unknown \| null>` | yes | Attribute map to upsert. A `null` value removes that Attribute. |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
 | `input.signal` | `AbortSignal` | no | Cancellation. |
 

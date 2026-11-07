@@ -205,7 +205,7 @@ export interface ContactCreate {
   locale?: string;
   timezone?: string;
   metadata?: Record<string, unknown>;
-  attributes?: Record<string, unknown>;
+  attributes?: Record<string, unknown | null>;
 }
 
 /** OpenAPI `ContactUpsert`. */
@@ -214,7 +214,7 @@ export interface ContactUpsert {
   locale?: string;
   timezone?: string;
   metadata?: Record<string, unknown>;
-  attributes?: Record<string, unknown>;
+  attributes?: Record<string, unknown | null>;
 }
 
 /** OpenAPI `ContactResponse`. */
@@ -407,7 +407,8 @@ export interface ContactsApi {
 }
 
 export interface AttributesUpsertInput {
-  attributes: Record<string, unknown>;
+  /** Attribute map to upsert. A `null` value removes that Attribute. */
+  attributes: Record<string, unknown | null>;
   idempotencyKey?: string;
   signal?: AbortSignal;
 }

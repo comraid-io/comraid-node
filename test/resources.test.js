@@ -112,6 +112,19 @@ test("attributes.upsert puts contact attributes by External user ID", async () =
 	});
 });
 
+test("attributes.upsert forwards null to remove an Attribute", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.attributes.upsert("user_a", {
+		attributes: { plan: null },
+	});
+
+	assert.deepEqual(calls[0], {
+		method: "PUT",
+		path: "/contacts/user_a/attributes",
+		body: { attributes: { plan: null } },
+	});
+});
+
 test("attributes.upsert requires external_user_id and attributes object", () => {
 	const { client, calls } = clientWithCapture();
 	assert.throws(() => client.attributes.upsert("", { attributes: {} }), /attributes\.upsert requires external_user_id/);
