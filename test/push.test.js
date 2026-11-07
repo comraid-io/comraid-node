@@ -239,3 +239,107 @@ test("push.multiSend passes data_only on child Contents", async () => {
 	assert.equal(calls[0].path, "/campaigns");
 	assert.deepEqual(calls[0].body.recipients[0].content.push, { data_only: true });
 });
+
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+test("push.uploadMedia posts multipart file to /media and returns the media URL", async () => {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return {
+					asset_id: "33333333-3333-4333-8333-333333333333",
+					url: "https://cdn.example.com/images/a.png",
+				};
+			},
+		},
+	});
+
+	const result = await client.push.uploadMedia(PNG_MAGIC, {
+		contentType: "image/png",
+		idempotencyKey: "media-1",
+	});
+
+	assert.equal(result.url, "https://cdn.example.com/images/a.png");
+	assert.equal(result.asset_id, "33333333-3333-4333-8333-333333333333");
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0].method, "POST");
+	assert.equal(calls[0].path, "/media");
+	assert.equal(calls[0].idempotencyKey, "media-1");
+	assert.ok(calls[0].body instanceof FormData);
+	const file = calls[0].body.get("file");
+	assert.ok(file instanceof Blob);
+	assert.equal(file.type, "image/png");
+});
+
+test("push.uploadMedia accepts Buffer, Blob, and a file path stream", async () => {
+	const { createReadStream } = await import("node:fs");
+	const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { join } = await import("node:path");
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { asset_id: "a", url: "https://cdn.example/x.jpg" };
+			},
+		},
+	});
+
+	await client.push.uploadMedia(JPEG_MAGIC, { contentType: "image/jpeg" });
+	assert.ok(calls[0].body instanceof FormData);
+
+	await client.push.uploadMedia(new Blob([JPEG_MAGIC], { type: "image/jpeg" }), {
+		contentType: "image/jpeg",
+	});
+	assert.ok(calls[1].body instanceof FormData);
+
+	const dir = await mkdtemp(join(tmpdir(), "comraid-media-"));
+	const filePath = join(dir, "pic.jpg");
+	try {
+		await writeFile(filePath, JPEG_MAGIC);
+		await client.push.uploadMedia(filePath, { contentType: "image/jpeg" });
+		assert.ok(calls[2].body instanceof FormData);
+
+		await client.push.uploadMedia(createReadStream(filePath), { contentType: "image/jpeg" });
+		assert.ok(calls[3].body instanceof FormData);
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("push.uploadMedia rejects oversized and non-JPEG/PNG uploads client-side", async () => {
+	const calls = [];
+	const client = new ComRaid({
+		transport: {
+			request: async (options) => {
+				calls.push(options);
+				return { asset_id: "a", url: "https://cdn.example/x.jpg" };
+			},
+		},
+	});
+
+	const tooLarge = Buffer.alloc((1 << 20) + 1, 0xff);
+	tooLarge[0] = 0xff;
+	tooLarge[1] = 0xd8;
+	tooLarge[2] = 0xff;
+	await assert.rejects(
+		() => client.push.uploadMedia(tooLarge, { contentType: "image/jpeg" }),
+		/1\s*MiB|1MB|too large/i,
+	);
+
+	await assert.rejects(
+		() => client.push.uploadMedia(Buffer.from("not-an-image"), { contentType: "image/gif" }),
+		/jpeg|png/i,
+	);
+
+	await assert.rejects(
+		() => client.push.uploadMedia(Buffer.from("hello"), { contentType: "image/png" }),
+		/jpeg|png|image/i,
+	);
+
+	assert.equal(calls.length, 0);
+});

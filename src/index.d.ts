@@ -5,6 +5,7 @@ export interface RequestOptions<TBody = unknown> {
   method?: HttpMethod;
   path: `/${string}`;
   query?: Record<string, QueryValue>;
+  /** JSON value, or `FormData` / `Blob` for multipart upload bodies. */
   body?: TBody;
   headers?: HeadersInit;
   idempotencyKey?: string;
@@ -100,6 +101,7 @@ export interface TargetingSpec {
 }
 
 export type MessageStatus =
+  | "draft"
   | "scheduled"
   | "preparing"
   | "processing"
@@ -117,7 +119,7 @@ export type CampaignStatus =
 /**
  * OpenAPI `MessageAccepted` (202 create response). A Broadcast returns status
  * `preparing` without `delivery_count` / `recipients`; read counts from
- * `messages.get` once it leaves `preparing`.
+ * `push.get` once it leaves `preparing`. A Draft returns status `draft`.
  */
 export interface MessageAccepted {
   message_id: string;
@@ -133,6 +135,8 @@ export interface MessageAccepted {
 export interface MessageDetail {
   message_id: string;
   status: MessageStatus;
+  /** Present on Drafts for optimistic concurrency (`push.drafts.update`). */
+  updated_at?: string;
   status_summary?: Record<string, unknown>;
   recipient?: Record<string, unknown> | null;
   channel?: string;
@@ -161,6 +165,76 @@ export interface CampaignAccepted {
     status: MessageStatus;
     delivery_count?: number;
   }>;
+}
+
+/** OpenAPI `CampaignDetail` (GET /campaigns/{id}). */
+export interface CampaignDetail {
+  campaign_id: string;
+  channel: string;
+  status: CampaignStatus;
+  name?: string;
+  created_at?: string;
+  message_count?: number;
+  message_counts: {
+    scheduled: number;
+    preparing: number;
+    processing: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+  };
+  messages: Array<{
+    message_id?: string;
+    external_user_id?: string;
+    status?: MessageStatus;
+    title?: string;
+    body?: string;
+    delivery_count?: number;
+  }>;
+}
+
+/** OpenAPI `CampaignCancelled`. */
+export interface CampaignCancelled {
+  campaign_id: string;
+  cancelled_count: number;
+}
+
+/** OpenAPI `MessageList` (GET /messages, including Drafts). */
+export interface MessageList {
+  messages: Array<Record<string, unknown>>;
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+/** OpenAPI Draft archive response. */
+export interface DraftArchived {
+  message_id: string;
+  status: "draft";
+  archived?: boolean;
+}
+
+/** OpenAPI `ContactPreference`. */
+export interface ContactPreference {
+  category: string;
+  channel: "push";
+  enabled: boolean;
+  updated_at?: string;
+}
+
+/** OpenAPI `ContactPreferencesResponse`. */
+export interface ContactPreferencesResponse {
+  contact_id?: string;
+  external_user_id?: string;
+  preferences: ContactPreference[];
+}
+
+/** OpenAPI `ContactOptOutResponse`. */
+export interface ContactOptOutResponse {
+  contact_id?: string;
+  external_user_id?: string;
+  channel: "push";
+  opted_out: boolean;
 }
 
 /** OpenAPI `ContactCreate`. */
@@ -317,20 +391,83 @@ export interface PushMultiSendInput {
   signal?: AbortSignal;
 }
 
+/** OpenAPI `MediaUploadResponse` (POST /media). */
+export interface MediaUploadResponse {
+  asset_id: string;
+  /** Public URL for `content.push.image_url`. */
+  url: string;
+}
+
+export type PushUploadMediaFile = Buffer | Uint8Array | Blob | string | NodeJS.ReadableStream;
+
+export interface PushUploadMediaOptions {
+  /** Declared MIME type; must be `image/jpeg` or `image/png`. */
+  contentType: "image/jpeg" | "image/png";
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+/** Draft create fields — OpenAPI `MessageCreate` with `draft: true`. */
+export interface PushDraftCreateInput extends PushMessageCreateFields {
+  targeting?: TargetingSpec;
+  content: PushContent;
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+/** Draft update fields — OpenAPI `MessageDraftUpdate` (requires `updated_at`). */
+export interface PushDraftUpdateInput extends PushMessageCreateFields {
+  /** Optimistic concurrency token from the loaded Draft (`push.get` / list). */
+  updated_at: string;
+  targeting?: TargetingSpec;
+  content: PushContent;
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+export interface PushDraftListOptions extends RequestSignalOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PushDraftsApi {
+  /** `POST /messages` with `draft: true` → OpenAPI `createMessage`. */
+  create(input: PushDraftCreateInput): Promise<MessageAccepted>;
+  /** `PATCH /messages/{id}` → OpenAPI `updateDraft`. */
+  update(messageId: string, input: PushDraftUpdateInput): Promise<MessageDetail>;
+  /** `GET /messages?status=draft` → OpenAPI `listMessages`. */
+  list(options?: PushDraftListOptions): Promise<MessageList>;
+  /** `POST /messages/{id}/send` → OpenAPI `sendDraft`. */
+  send(messageId: string, options?: RequestSignalOptions): Promise<MessageAccepted>;
+  /** `DELETE /messages/{id}` → OpenAPI `archiveDraft`. */
+  archive(messageId: string, options?: RequestSignalOptions): Promise<DraftArchived>;
+}
+
 export interface PushApi {
+  /**
+   * Upload a JPEG/PNG (max 1 MiB) → OpenAPI `uploadMedia` (`POST /media`).
+   * Accepts Buffer, Blob, filesystem path, or Readable stream. Client checks
+   * size and type; the server remains the authority.
+   */
+  uploadMedia(file: PushUploadMediaFile, options: PushUploadMediaOptions): Promise<MediaUploadResponse>;
   /** Single send → `POST /messages` with `to.external_user_ids`. */
   send(input: PushSendInput): Promise<MessageAccepted>;
   /** Broadcast → `POST /messages` with `targeting`. */
   broadcast(input: PushBroadcastInput): Promise<MessageAccepted>;
   /** Multi-send → `POST /campaigns` with per-Contact Contents. */
   multiSend(input: PushMultiSendInput): Promise<CampaignAccepted>;
-}
-
-export interface MessagesApi {
   /** `GET /messages/{id}` → OpenAPI `getMessage`. */
   get(messageId: string, options?: RequestSignalOptions): Promise<MessageDetail>;
   /** `POST /messages/{id}/cancel` → OpenAPI `cancelMessage`. */
   cancel(messageId: string, options?: RequestSignalOptions): Promise<MessageCancelled>;
+  readonly drafts: PushDraftsApi;
+}
+
+export interface CampaignsApi {
+  /** `GET /campaigns/{id}` → OpenAPI `getCampaign`. */
+  get(campaignId: string, options?: RequestSignalOptions): Promise<CampaignDetail>;
+  /** `POST /campaigns/{id}/cancel` → OpenAPI `cancelCampaign`. */
+  cancel(campaignId: string, options?: RequestSignalOptions): Promise<CampaignCancelled>;
 }
 
 export type ContactCreateInput = ContactCreate & {
@@ -358,11 +495,25 @@ export interface ContactsEndpointsApi {
   list(externalUserId: string, options?: RequestSignalOptions): Promise<EndpointListResponse>;
 }
 
+export type ContactPreferencesSetInput = {
+  preferences: ContactPreference[];
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+};
+
 export interface ContactsApi {
   /** `POST /contacts` → OpenAPI `createContact`. */
   create(input: ContactCreateInput): Promise<ContactResponse>;
   /** `PUT /contacts/{external_user_id}` → OpenAPI `upsertContact`. */
   upsert(externalUserId: string, input?: ContactUpsertInput): Promise<ContactResponse>;
+  /** `PUT /contacts/{external_user_id}/opt-outs/{channel}` with `opted_out: true` → OpenAPI `putContactChannelOptOut`. */
+  optOut(externalUserId: string, channel: "push", options?: RequestSignalOptions): Promise<ContactOptOutResponse>;
+  /** `PUT /contacts/{external_user_id}/opt-outs/{channel}` with `opted_out: false` → OpenAPI `putContactChannelOptOut`. */
+  optIn(externalUserId: string, channel: "push", options?: RequestSignalOptions): Promise<ContactOptOutResponse>;
+  /** `GET /contacts/{external_user_id}/preferences` → OpenAPI `listContactPreferences`. */
+  getPreferences(externalUserId: string, options?: RequestSignalOptions): Promise<ContactPreferencesResponse>;
+  /** `PUT /contacts/{external_user_id}/preferences` → OpenAPI `upsertContactPreferences`. */
+  setPreferences(externalUserId: string, input: ContactPreferencesSetInput): Promise<ContactPreferencesResponse>;
   readonly endpoints: ContactsEndpointsApi;
 }
 
@@ -435,7 +586,7 @@ export const identity: IdentityApi;
 export class ComRaid {
   static readonly identity: IdentityApi;
   readonly push: PushApi;
-  readonly messages: MessagesApi;
+  readonly campaigns: CampaignsApi;
   readonly contacts: ContactsApi;
   readonly attributes: AttributesApi;
   readonly segments: SegmentsApi;
