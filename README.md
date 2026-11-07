@@ -251,7 +251,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `options.platform` | `"android" \| "ios"` | no | Platform filter. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDeliveryList>` — `deliveries` plus optional `next_cursor`. Row shape includes Contact (`external_user_id`), device (`platform`, `model`), status, and `error_code` / `error_message` for failed/skipped.
+**Returns:** `Promise<MessageDeliveryList>` — `deliveries` plus optional `next_cursor`. Row shape includes Contact (`external_user_id`), Endpoint (`platform`, `model`), status, and `error_code` / `error_message` for failed/skipped.
 
 ### Messages
 
@@ -262,7 +262,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. Per-device rows are not embedded; use `push.listDeliveries`.
+**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. Per-Endpoint Delivery rows are not embedded; use `push.listDeliveries`.
 
 #### `comraid.messages.cancel(messageId, options?)` → OpenAPI `cancelMessage`
 
