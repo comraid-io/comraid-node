@@ -47,7 +47,7 @@ function resolveExpiresIn(expiresIn) {
  * }} options
  * @returns {string} compact JWT
  */
-export function createToken(externalUserId, options = {}) {
+export function createJwt(externalUserId, options = {}) {
 	const sub = requireNonEmptyString(externalUserId, "externalUserId");
 	const projectId = requireNonEmptyString(options.projectId, "projectId");
 	const kid = requireNonEmptyString(options.kid, "kid");
@@ -83,5 +83,5 @@ export function createToken(externalUserId, options = {}) {
 }
 
 export const identity = {
-	createToken,
+	createJwt,
 };
