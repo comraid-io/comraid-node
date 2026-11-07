@@ -140,8 +140,43 @@ export interface MessageDetail {
   targeting?: Record<string, unknown> | null;
   timing?: Record<string, unknown>;
   attribution?: Record<string, unknown>;
-  deliveries?: Array<Record<string, unknown>>;
 }
+
+/** OpenAPI `DeliveryInspection` (list Message Deliveries item). */
+export interface DeliveryInspection {
+  delivery_id: string;
+  channel?: string;
+  provider?: string;
+  platform?: string | null;
+  model?: string | null;
+  contact_id?: string;
+  external_user_id?: string | null;
+  status?: string;
+  attempt_count?: number;
+  provider_message_id?: string | null;
+  queued_at?: string | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  opened_at?: string | null;
+  failed_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  action_id?: string | null;
+  action_clicked_at?: string | null;
+}
+
+/** OpenAPI `MessageDeliveryList` (GET /messages/{id}/deliveries). */
+export interface MessageDeliveryList {
+  deliveries: DeliveryInspection[];
+  next_cursor?: string;
+}
+
+export type ListMessageDeliveriesOptions = RequestSignalOptions & {
+  limit?: number;
+  cursor?: string;
+  status?: string;
+  platform?: "android" | "ios";
+};
 
 /** OpenAPI cancel Message response. */
 export interface MessageCancelled {
@@ -324,6 +359,11 @@ export interface PushApi {
   broadcast(input: PushBroadcastInput): Promise<MessageAccepted>;
   /** Multi-send → `POST /campaigns` with per-Contact Contents. */
   multiSend(input: PushMultiSendInput): Promise<CampaignAccepted>;
+  /** `GET /messages/{id}/deliveries` → OpenAPI `listMessageDeliveries`. */
+  listDeliveries(
+    messageId: string,
+    options?: ListMessageDeliveriesOptions,
+  ): Promise<MessageDeliveryList>;
 }
 
 export interface MessagesApi {

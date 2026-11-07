@@ -15,6 +15,8 @@ const REQUIRED_SCHEMA_NAMES = [
 	"EndpointSummary",
 	"EndpointListResponse",
 	"MessageDetail",
+	"MessageDeliveryList",
+	"DeliveryInspection",
 	"SegmentCreate",
 	"SegmentRules",
 	"TargetingSpec",
@@ -25,6 +27,7 @@ const REQUIRED_SCHEMA_NAMES = [
 
 const REQUIRED_OPERATION_IDS = [
 	"getMessage",
+	"listMessageDeliveries",
 	"cancelMessage",
 	"createContact",
 	"upsertContact",

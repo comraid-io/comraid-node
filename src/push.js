@@ -1,4 +1,4 @@
-import { requestOptions } from "./request-options.js";
+import { encodePathSegment, requestOptions, requireNonEmptyString } from "./request-options.js";
 
 const CHANNEL = "push";
 
@@ -40,6 +40,23 @@ export function createPushApi(client) {
 						channel: CHANNEL,
 						recipients: recipients.map(wrapRecipient),
 					},
+				}),
+			);
+		},
+		listDeliveries(messageId, options = {}) {
+			const id = requireNonEmptyString(messageId, "push.listDeliveries requires a message id");
+			const { signal, limit, cursor, status, platform } = options;
+			const query = {};
+			if (limit !== undefined) query.limit = limit;
+			if (cursor !== undefined) query.cursor = cursor;
+			if (status !== undefined) query.status = status;
+			if (platform !== undefined) query.platform = platform;
+			return client.request(
+				requestOptions({
+					method: "GET",
+					path: `/messages/${encodePathSegment(id)}/deliveries`,
+					query: Object.keys(query).length > 0 ? query : undefined,
+					signal,
 				}),
 			);
 		},

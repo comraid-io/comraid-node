@@ -240,6 +240,19 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 
 **Returns:** `Promise<CampaignAccepted>` (`campaign_id`, per-Message statuses, …).
 
+#### `comraid.push.listDeliveries(messageId, options?)` → OpenAPI `listMessageDeliveries`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | yes | Message id. |
+| `options.limit` | `number` | no | Page size (1–100, default 50). |
+| `options.cursor` | `string` | no | Opaque cursor from a previous `next_cursor`. |
+| `options.status` | `string` | no | Delivery status filter. |
+| `options.platform` | `"android" \| "ios"` | no | Platform filter. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MessageDeliveryList>` — `deliveries` plus optional `next_cursor`. Row shape includes Contact (`external_user_id`), Endpoint (`platform`, `model`), status, and `error_code` / `error_message` for failed/skipped.
+
 ### Messages
 
 #### `comraid.messages.get(messageId, options?)` → OpenAPI `getMessage`
@@ -249,7 +262,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `messageId` | `string` | yes | Message id. |
 | `options.signal` | `AbortSignal` | no | Cancellation. |
 
-**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts.
+**Returns:** `Promise<MessageDetail>` — `status` is one of `scheduled`, `preparing`, `processing`, `completed`, `failed`, `cancelled`. A `completed` Message can still report failed and skipped counts. Per-Endpoint Delivery rows are not embedded; use `push.listDeliveries`.
 
 #### `comraid.messages.cancel(messageId, options?)` → OpenAPI `cancelMessage`
 
