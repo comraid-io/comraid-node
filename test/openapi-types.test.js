@@ -73,19 +73,31 @@ function resolveOpenApiPath() {
 	return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
-test("index.d.ts stays aligned with OpenAPI schema and operation names", () => {
-	const openapiPath = resolveOpenApiPath();
-	assert.ok(openapiPath, "OpenAPI file not found; set COMRAID_OPENAPI or keep sibling server checkout");
-	const openapi = fs.readFileSync(openapiPath, "utf8");
+// Server is private; GitHub CI has no sibling checkout. OpenAPI-source checks run
+// wherever the spec is reachable; index.d.ts / README assertions always run.
+const openapiPath = resolveOpenApiPath();
+const openapiSkip =
+	!openapiPath && "OpenAPI file not found; set COMRAID_OPENAPI or keep sibling server checkout";
+
+test("index.d.ts documents required OpenAPI schema and operation names", () => {
 	const dts = fs.readFileSync(path.join(root, "src/index.d.ts"), "utf8");
 
 	for (const name of REQUIRED_SCHEMA_NAMES) {
-		assert.match(openapi, new RegExp(`^\\s{4}${name}:`, "m"), `OpenAPI missing schema ${name}`);
 		assert.match(dts, new RegExp(`\\b${name}\\b|OpenAPI \`${name}\``), `index.d.ts missing OpenAPI ${name}`);
 	}
 	for (const operationId of REQUIRED_OPERATION_IDS) {
-		assert.match(openapi, new RegExp(`operationId:\\s*${operationId}\\b`), `OpenAPI missing operationId ${operationId}`);
 		assert.match(dts, new RegExp(`OpenAPI \`${operationId}\``), `index.d.ts missing operationId ${operationId}`);
+	}
+});
+
+test("OpenAPI source includes schemas and operations tracked by index.d.ts", { skip: openapiSkip }, () => {
+	const openapi = fs.readFileSync(openapiPath, "utf8");
+
+	for (const name of REQUIRED_SCHEMA_NAMES) {
+		assert.match(openapi, new RegExp(`^\\s{4}${name}:`, "m"), `OpenAPI missing schema ${name}`);
+	}
+	for (const operationId of REQUIRED_OPERATION_IDS) {
+		assert.match(openapi, new RegExp(`operationId:\\s*${operationId}\\b`), `OpenAPI missing operationId ${operationId}`);
 	}
 });
 
@@ -104,9 +116,9 @@ test("PushSendInput documents OpenAPI Message create targeting and reliability f
 	assert.match(readme, /\bttl\b/);
 	assert.match(readme, /collapse_key/);
 	assert.match(readme, /send_at_local/);
+});
 
-	const openapiPath = resolveOpenApiPath();
-	assert.ok(openapiPath, "OpenAPI file not found; set COMRAID_OPENAPI or keep sibling server checkout");
+test("OpenAPI Message create documents targeting and reliability fields", { skip: openapiSkip }, () => {
 	const openapi = fs.readFileSync(openapiPath, "utf8");
 	assert.match(openapi, /to\.endpoint_ids[`']?\s*is rejected/);
 	assert.doesNotMatch(openapi, /^\s+endpoint_ids:/m);
@@ -118,8 +130,9 @@ test("PushSendInput documents OpenAPI Message create targeting and reliability f
 test("PushContent documents data_only", () => {
 	const dts = fs.readFileSync(path.join(root, "src/index.d.ts"), "utf8");
 	assert.match(dts, /data_only\??:\s*boolean/);
-	const openapiPath = resolveOpenApiPath();
-	assert.ok(openapiPath, "OpenAPI file not found");
+});
+
+test("OpenAPI documents data_only on push content", { skip: openapiSkip }, () => {
 	const openapi = fs.readFileSync(openapiPath, "utf8");
 	assert.match(openapi, /data_only:/);
 });
