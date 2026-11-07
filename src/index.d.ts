@@ -443,6 +443,33 @@ export interface PushDraftsApi {
   archive(messageId: string, options?: RequestSignalOptions): Promise<DraftArchived>;
 }
 
+export interface MessageDeliveryList {
+  deliveries: DeliveryInspection[];
+  next_cursor?: string;
+}
+
+export interface DeliveryInspection {
+  delivery_id: string;
+  channel?: string;
+  provider?: string;
+  platform?: string | null;
+  model?: string | null;
+  contact_id?: string;
+  external_user_id?: string | null;
+  status?: string;
+  attempt_count?: number;
+  provider_message_id?: string | null;
+  queued_at?: string | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  opened_at?: string | null;
+  failed_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  action_id?: string | null;
+  action_clicked_at?: string | null;
+}
+
 export interface PushApi {
   /**
    * Upload a JPEG/PNG (max 1 MiB) → OpenAPI `uploadMedia` (`POST /media`).
@@ -461,7 +488,13 @@ export interface PushApi {
   /** `POST /messages/{id}/cancel` → OpenAPI `cancelMessage`. */
   cancel(messageId: string, options?: RequestSignalOptions): Promise<MessageCancelled>;
   readonly drafts: PushDraftsApi;
+  /** `GET /messages/{id}/deliveries` → OpenAPI `listMessageDeliveries`. */
+  listDeliveries(
+    messageId: string,
+    options?: ListMessageDeliveriesOptions,
+  ): Promise<MessageDeliveryList>;
 }
+
 
 export interface CampaignsApi {
   /** `GET /campaigns/{id}` → OpenAPI `getCampaign`. */

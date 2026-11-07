@@ -29,7 +29,6 @@ const REQUIRED_SCHEMA_NAMES = [
 	"CampaignDetail",
 	"CampaignCancelled",
 	"MediaUploadResponse",
-	"MessageDeliveryList",
 	"DeliveryInspection"
 ];
 

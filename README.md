@@ -305,6 +305,20 @@ await comraid.push.send({
 
 **Returns:** `Promise<MessageCancelled>`. Cancel works while the Message is `scheduled`, `preparing`, or `processing`; finished statuses reject with a 409 conflict. Cancel does not apply to Drafts.
 
+#### `comraid.push.listDeliveries(messageId, options?)` → OpenAPI `listMessageDeliveries`
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | yes | Message id. |
+| `options.limit` | `number` | no | Page size (1–100, default 50). |
+| `options.cursor` | `string` | no | Opaque cursor from a previous `next_cursor`. |
+| `options.status` | `string` | no | Delivery status filter. |
+| `options.platform` | `"android" \| "ios"` | no | Platform filter. |
+| `options.signal` | `AbortSignal` | no | Cancellation. |
+
+**Returns:** `Promise<MessageDeliveryList>` — `deliveries` plus optional `next_cursor`. Row shape includes Contact (`external_user_id`), Endpoint (`platform`, `model`), status, and `error_code` / `error_message` for failed/skipped.
+
+
 ### Drafts
 
 Draft helpers set `draft: true` / nest Content like other push methods. REST paths stay under `/messages`.
