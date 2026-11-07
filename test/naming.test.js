@@ -27,8 +27,9 @@ test("primary export is ComRaid without Comraide alias", async () => {
 
 test("User-Agent uses @comraid/node only", () => {
 	const transport = fs.readFileSync(path.join(root, "src/transport.js"), "utf8");
-	assert.match(transport, /"@comraid\/node\/0\.1\.0"/);
+	assert.match(transport, /@comraid\/node\/\$\{VERSION\}/);
 	assert.doesNotMatch(transport, /@comraide\/node\//);
+	assert.doesNotMatch(transport, /@comraid\/node\/0\.1\.0/);
 });
 
 test("shipped paths contain no comraide misspelling", () => {

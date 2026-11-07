@@ -1,4 +1,5 @@
 import { ComRaidError, ComRaidTimeoutError } from "./errors.js";
+import { VERSION } from "./version.js";
 
 const DEFAULT_BASE_URL = "https://api.comraid.io";
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -52,7 +53,7 @@ export class FetchTransport {
 		const headers = new Headers(options.headers);
 		headers.set("authorization", `Bearer ${this.apiKey}`);
 		headers.set("accept", "application/json");
-		headers.set("user-agent", "@comraid/node/0.1.0");
+		headers.set("user-agent", `@comraid/node/${VERSION}`);
 		if (options.idempotencyKey) headers.set("idempotency-key", options.idempotencyKey);
 
 		let body;
