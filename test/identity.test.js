@@ -36,9 +36,9 @@ function verifyRs256(raw, publicKeyPem) {
 	);
 }
 
-test("identity.createToken returns an RS256 JWT ComRaid login accepts", () => {
+test("identity.createJwt returns an RS256 JWT ComRaid login accepts", () => {
 	const { privateKey, publicKey } = generatePemPair();
-	const token = identity.createToken(EXTERNAL_USER_ID, {
+	const token = identity.createJwt(EXTERNAL_USER_ID, {
 		projectId: PROJECT_ID,
 		privateKey,
 		kid: KID,
@@ -61,11 +61,11 @@ test("identity.createToken returns an RS256 JWT ComRaid login accepts", () => {
 	assert.equal(payload.exp - payload.iat, 300);
 });
 
-test("identity.createToken rejects expired lifetime beyond the 10 minute max", () => {
+test("identity.createJwt rejects expired lifetime beyond the 10 minute max", () => {
 	const { privateKey } = generatePemPair();
 	assert.throws(
 		() =>
-			identity.createToken(EXTERNAL_USER_ID, {
+			identity.createJwt(EXTERNAL_USER_ID, {
 				projectId: PROJECT_ID,
 				privateKey,
 				kid: KID,
@@ -75,9 +75,9 @@ test("identity.createToken rejects expired lifetime beyond the 10 minute max", (
 	);
 });
 
-test("createToken embeds the requested external_user_id in sub and external_user_id claims", () => {
+test("createJwt embeds the requested external_user_id in sub and external_user_id claims", () => {
 	const { privateKey } = generatePemPair();
-	const token = identity.createToken(EXTERNAL_USER_ID, {
+	const token = identity.createJwt(EXTERNAL_USER_ID, {
 		projectId: PROJECT_ID,
 		privateKey,
 		kid: KID,
@@ -87,9 +87,9 @@ test("createToken embeds the requested external_user_id in sub and external_user
 	assert.equal(payload.external_user_id, EXTERNAL_USER_ID);
 });
 
-test("createToken can mint a past-dated token for server expiry checks (test-only now)", () => {
+test("createJwt can mint a past-dated JWT for server expiry checks (test-only now)", () => {
 	const { privateKey } = generatePemPair();
-	const token = identity.createToken(EXTERNAL_USER_ID, {
+	const token = identity.createJwt(EXTERNAL_USER_ID, {
 		projectId: PROJECT_ID,
 		privateKey,
 		kid: KID,

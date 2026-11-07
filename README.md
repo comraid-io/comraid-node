@@ -155,16 +155,16 @@ Generates a UUID suitable for the `Idempotency-Key` header on mutating requests.
 
 **Returns:** `string`
 
-#### `identity.createToken(externalUserId, options)`
+#### `identity.createJwt(externalUserId, options)`
 
-Offline helper that mints an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`. Also available as `ComRaid.identity.createToken` / `comraid.identity.createToken`. Does not call the API — upload the matching public key under Push settings. Identity verification stays optional per project; skip this when the required toggle is off. See [docs Authentication](https://docs.comraid.io/authentication).
+Offline helper that mints an RS256 Identity verification JWT for mobile `login(externalUserId, jwt)`. Also available as `ComRaid.identity.createJwt` / `comraid.identity.createJwt`. Does not call the API — upload the matching public key under Push settings. Identity verification stays optional per project; skip this when the required toggle is off. See [docs Authentication](https://docs.comraid.io/authentication).
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `externalUserId` | `string` | yes | Contact `external_user_id` (JWT `sub` + `external_user_id`). |
 | `options.projectId` | `string` | yes | Project UUID → `iss` `comraid:{projectId}`. |
 | `options.privateKey` | `string \| KeyObject` | yes | PEM RSA private key (PKCS#8 or PKCS#1). |
-| `options.kid` | `string` | yes | Key id matching an uploaded identity public key. |
+| `options.kid` | `string` | yes | Key id matching an uploaded Identity verification public key. |
 | `options.expiresIn` | `number` | no | Lifetime in seconds from `iat`. Default `300`; max `600`. |
 
 **Returns:** `string` — compact JWT (`aud=comraid:identity`).
@@ -173,7 +173,7 @@ Offline helper that mints an RS256 Identity verification JWT for mobile `login(e
 import { identity } from "@comraid/node";
 import { readFileSync } from "node:fs";
 
-const jwt = identity.createToken("user_123", {
+const jwt = identity.createJwt("user_123", {
   projectId: process.env.COMRAID_PROJECT_ID,
   privateKey: readFileSync("./comraid-identity.pem", "utf8"),
   kid: process.env.COMRAID_IDENTITY_KID,
