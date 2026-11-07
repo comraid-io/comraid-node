@@ -146,7 +146,7 @@ Constructs a client. By default builds a [`FetchTransport`](#fetchtransportoptio
 
 \*Either `apiKey` **or** `transport`.
 
-**Returns:** `ComRaid` with `push`, `messages`, `contacts`, `attributes`, `segments`, `identity`, `request`, and `createIdempotencyKey`.
+**Returns:** `ComRaid` with `push`, `campaigns`, `contacts`, `attributes`, `segments`, `identity`, `request`, and `createIdempotencyKey`.
 
 #### `comraid.createIdempotencyKey()`
 
