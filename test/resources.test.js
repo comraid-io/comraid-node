@@ -312,6 +312,17 @@ test("segments.list gets active Segments", async () => {
 	});
 });
 
+test("segments.list forwards include_archived", async () => {
+	const { client, calls } = clientWithCapture();
+	await client.segments.list({ include_archived: true });
+
+	assert.deepEqual(calls[0], {
+		method: "GET",
+		path: "/segments",
+		query: { include_archived: "true" },
+	});
+});
+
 test("segments.create posts SegmentCreate", async () => {
 	const { client, calls } = clientWithCapture();
 	await client.segments.create({
