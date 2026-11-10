@@ -328,14 +328,23 @@ export interface SegmentCreate {
   rules: SegmentRules;
 }
 
+/** OpenAPI `SegmentUpdate` — omitted fields keep their current values. */
+export interface SegmentUpdate {
+  name?: string;
+  description?: string;
+  rules?: SegmentRules;
+}
+
 /** Segment list/detail shapes returned by public `/segments` routes. */
 export interface SegmentSummary {
   id?: string;
   segment_id: string;
   name: string;
   description?: string;
+  rules?: SegmentRules;
   status?: string;
   created_at?: string;
+  updated_at?: string;
   archived_at?: string | null;
 }
 
@@ -346,10 +355,16 @@ export interface SegmentListResponse {
 export interface SegmentCreated {
   segment_id: string;
   status?: string;
+  updated_at?: string;
 }
 
 export interface RequestSignalOptions {
   signal?: AbortSignal;
+}
+
+export interface SegmentListOptions extends RequestSignalOptions {
+  /** When true, include archived Segments (`include_archived=true`). */
+  include_archived?: boolean;
 }
 
 /**
@@ -592,20 +607,20 @@ export type SegmentCreateInput = SegmentCreate & {
   signal?: AbortSignal;
 };
 
-export type SegmentUpdateInput = SegmentCreate & {
+export type SegmentUpdateInput = SegmentUpdate & {
   idempotencyKey?: string;
   signal?: AbortSignal;
 };
 
 export interface SegmentsApi {
   /** `GET /segments` → OpenAPI `listSegments`. */
-  list(options?: RequestSignalOptions): Promise<SegmentListResponse>;
+  list(options?: SegmentListOptions): Promise<SegmentListResponse>;
   /** `POST /segments` → OpenAPI `createSegment`. */
   create(input: SegmentCreateInput): Promise<SegmentCreated>;
   /** `GET /segments/{id}` → OpenAPI `getSegment`. */
   get(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `PUT /segments/{id}` → OpenAPI `updateSegment`. */
-  update(segmentId: string, input: SegmentUpdateInput): Promise<SegmentSummary>;
+  update(segmentId: string, input?: SegmentUpdateInput): Promise<SegmentSummary>;
   /** `DELETE /segments/{id}` → OpenAPI `archiveSegment`. */
   archive(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `POST /segments/{id}/restore` → OpenAPI `restoreSegment`. */

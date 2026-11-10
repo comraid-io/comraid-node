@@ -4,10 +4,15 @@ import { encodePathSegment, requestOptions, requireNonEmptyString } from "./requ
 export function createSegmentsApi(client) {
 	return {
 		list(options = {}) {
+			const query = {};
+			if (options.include_archived === true) {
+				query.include_archived = "true";
+			}
 			return client.request(
 				requestOptions({
 					method: "GET",
 					path: "/segments",
+					query: Object.keys(query).length > 0 ? query : undefined,
 					signal: options.signal,
 				}),
 			);
