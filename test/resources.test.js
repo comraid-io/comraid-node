@@ -369,6 +369,19 @@ test("segments.get / update / archive / restore use Segment id paths", async () 
 	});
 });
 
+test("segments.counts posts segment_ids", async () => {
+	const { client, calls } = clientWithCapture();
+	const ids = ["aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", "seg_sys_subscribed"];
+	await client.segments.counts(ids);
+	assert.deepEqual(calls, [
+		{
+			method: "POST",
+			path: "/segments/counts",
+			body: { segment_ids: ids },
+		},
+	]);
+});
+
 test("segments.create requires name and rules", () => {
 	const { client, calls } = clientWithCapture();
 	assert.throws(() => client.segments.create({ rules: { operator: "and", conditions: [] } }), /segments\.create requires name/);
@@ -382,6 +395,7 @@ test("segments methods require a segment id", () => {
 	assert.throws(() => client.segments.update(null, { name: "X", rules: { operator: "and", conditions: [] } }), /segments\.update requires a segment id/);
 	assert.throws(() => client.segments.archive(undefined), /segments\.archive requires a segment id/);
 	assert.throws(() => client.segments.restore(""), /segments\.restore requires a segment id/);
+	assert.throws(() => client.segments.counts([]), /segments\.counts requires a non-empty segmentIds array/);
 	assert.equal(calls.length, 0);
 });
 

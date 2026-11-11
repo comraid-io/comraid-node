@@ -348,6 +348,22 @@ export interface SegmentSummary {
   archived_at?: string | null;
 }
 
+/** OpenAPI `SegmentDetail` — `GET /segments/{id}` includes live counts. */
+export interface SegmentDetail extends SegmentSummary {
+  contact_count: number;
+  scheduled_message_count: number;
+}
+
+export interface SegmentCountItem {
+  segment_id: string;
+  contact_count: number;
+  scheduled_message_count: number;
+}
+
+export interface SegmentCountsResponse {
+  counts: SegmentCountItem[];
+}
+
 export interface SegmentListResponse {
   segments: SegmentSummary[];
 }
@@ -618,13 +634,15 @@ export interface SegmentsApi {
   /** `POST /segments` → OpenAPI `createSegment`. */
   create(input: SegmentCreateInput): Promise<SegmentCreated>;
   /** `GET /segments/{id}` → OpenAPI `getSegment`. */
-  get(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
+  get(segmentId: string, options?: RequestSignalOptions): Promise<SegmentDetail>;
   /** `PUT /segments/{id}` → OpenAPI `updateSegment`. */
   update(segmentId: string, input?: SegmentUpdateInput): Promise<SegmentSummary>;
   /** `DELETE /segments/{id}` → OpenAPI `archiveSegment`. */
   archive(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `POST /segments/{id}/restore` → OpenAPI `restoreSegment`. */
   restore(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
+  /** `POST /segments/counts` → OpenAPI `countSegments`. */
+  counts(segmentIds: string[], options?: RequestSignalOptions): Promise<SegmentCountsResponse>;
 }
 
 export interface CreateIdentityTokenOptions {
