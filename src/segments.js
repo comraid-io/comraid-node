@@ -1,13 +1,22 @@
 import { encodePathSegment, requestOptions, requireNonEmptyString } from "./request-options.js";
 
-/** Segment resource methods — OpenAPI `/segments` CRUD + restore. */
+/**
+ * Segment resource methods — OpenAPI `/segments` CRUD + restore + counts.
+ * Built-in segment_id values use Glossary names: Everyone, New contacts,
+ * Recently active, Engaged, Dormant, Android contacts, iOS contacts.
+ */
 export function createSegmentsApi(client) {
 	return {
 		list(options = {}) {
+			const query = {};
+			if (options.include_archived === true) {
+				query.include_archived = "true";
+			}
 			return client.request(
 				requestOptions({
 					method: "GET",
 					path: "/segments",
+					query: Object.keys(query).length > 0 ? query : undefined,
 					signal: options.signal,
 				}),
 			);
@@ -67,6 +76,19 @@ export function createSegmentsApi(client) {
 				requestOptions({
 					method: "POST",
 					path: `/segments/${encodePathSegment(id)}/restore`,
+					signal: options.signal,
+				}),
+			);
+		},
+		counts(segmentIds, options = {}) {
+			if (!Array.isArray(segmentIds) || segmentIds.length === 0) {
+				throw new TypeError("segments.counts requires a non-empty segmentIds array");
+			}
+			return client.request(
+				requestOptions({
+					method: "POST",
+					path: "/segments/counts",
+					body: { segment_ids: segmentIds },
 					signal: options.signal,
 				}),
 			);

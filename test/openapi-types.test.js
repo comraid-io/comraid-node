@@ -21,7 +21,10 @@ const REQUIRED_SCHEMA_NAMES = [
 	"MessageList",
 	"MessageDraftUpdate",
 	"SegmentCreate",
+	"SegmentUpdate",
 	"SegmentRules",
+	"SegmentSummary",
+	"SegmentDetail",
 	"TargetingSpec",
 	"PushAction",
 	"MessageAccepted",
@@ -58,6 +61,7 @@ const REQUIRED_OPERATION_IDS = [
 	"updateSegment",
 	"archiveSegment",
 	"restoreSegment",
+	"countSegments",
 	"uploadMedia",
 	"previewTargeting",
 ];

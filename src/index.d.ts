@@ -94,9 +94,20 @@ export interface SegmentRules {
 
 /**
  * OpenAPI `TargetingSpec`. Exactly one of `everyone`, `segment_id`, or `rules`.
+ *
+ * `everyone` is Everyone (Contacts with at least one Active Endpoint who are not
+ * Opted out). Built-in `segment_id` values (`seg_sys_*`) use Glossary names:
+ * Everyone (`seg_sys_subscribed`), New contacts (`seg_sys_new`), Recently active
+ * (`seg_sys_active`), Engaged (`seg_sys_engaged`), Dormant (`seg_sys_dormant`),
+ * Android contacts (`seg_sys_android`), iOS contacts (`seg_sys_ios`).
  */
 export interface TargetingSpec {
+  /** Everyone — Active Endpoint on the Channel and not Opted out. */
   everyone?: boolean;
+  /**
+   * Saved Segment UUID or built-in `seg_sys_*` (Everyone, New contacts,
+   * Recently active, Engaged, Dormant, Android contacts, iOS contacts).
+   */
   segment_id?: string;
   rules?: SegmentRules;
 }
@@ -328,15 +339,44 @@ export interface SegmentCreate {
   rules: SegmentRules;
 }
 
-/** Segment list/detail shapes returned by public `/segments` routes. */
+/** OpenAPI `SegmentUpdate` — omitted fields keep their current values. */
+export interface SegmentUpdate {
+  name?: string;
+  description?: string;
+  rules?: SegmentRules;
+}
+
+/**
+ * Segment list/detail shapes returned by public `/segments` routes.
+ * Prefer Glossary names in product copy: Segment (not audience), Contact (not
+ * user), Communication preferences (not opted-out categories).
+ */
 export interface SegmentSummary {
   id?: string;
   segment_id: string;
   name: string;
   description?: string;
+  rules?: SegmentRules;
   status?: string;
   created_at?: string;
+  updated_at?: string;
   archived_at?: string | null;
+}
+
+/** OpenAPI `SegmentDetail` — `GET /segments/{id}` includes live counts. */
+export interface SegmentDetail extends SegmentSummary {
+  contact_count: number;
+  scheduled_message_count: number;
+}
+
+export interface SegmentCountItem {
+  segment_id: string;
+  contact_count: number;
+  scheduled_message_count: number;
+}
+
+export interface SegmentCountsResponse {
+  counts: SegmentCountItem[];
 }
 
 export interface SegmentListResponse {
@@ -346,10 +386,16 @@ export interface SegmentListResponse {
 export interface SegmentCreated {
   segment_id: string;
   status?: string;
+  updated_at?: string;
 }
 
 export interface RequestSignalOptions {
   signal?: AbortSignal;
+}
+
+export interface SegmentListOptions extends RequestSignalOptions {
+  /** When true, include archived Segments (`include_archived=true`). */
+  include_archived?: boolean;
 }
 
 /**
@@ -592,24 +638,26 @@ export type SegmentCreateInput = SegmentCreate & {
   signal?: AbortSignal;
 };
 
-export type SegmentUpdateInput = SegmentCreate & {
+export type SegmentUpdateInput = SegmentUpdate & {
   idempotencyKey?: string;
   signal?: AbortSignal;
 };
 
 export interface SegmentsApi {
   /** `GET /segments` → OpenAPI `listSegments`. */
-  list(options?: RequestSignalOptions): Promise<SegmentListResponse>;
+  list(options?: SegmentListOptions): Promise<SegmentListResponse>;
   /** `POST /segments` → OpenAPI `createSegment`. */
   create(input: SegmentCreateInput): Promise<SegmentCreated>;
   /** `GET /segments/{id}` → OpenAPI `getSegment`. */
-  get(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
+  get(segmentId: string, options?: RequestSignalOptions): Promise<SegmentDetail>;
   /** `PUT /segments/{id}` → OpenAPI `updateSegment`. */
-  update(segmentId: string, input: SegmentUpdateInput): Promise<SegmentSummary>;
+  update(segmentId: string, input?: SegmentUpdateInput): Promise<SegmentSummary>;
   /** `DELETE /segments/{id}` → OpenAPI `archiveSegment`. */
   archive(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
   /** `POST /segments/{id}/restore` → OpenAPI `restoreSegment`. */
   restore(segmentId: string, options?: RequestSignalOptions): Promise<SegmentSummary>;
+  /** `POST /segments/counts` → OpenAPI `countSegments`. */
+  counts(segmentIds: string[], options?: RequestSignalOptions): Promise<SegmentCountsResponse>;
 }
 
 export interface CreateIdentityTokenOptions {
