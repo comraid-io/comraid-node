@@ -76,5 +76,18 @@ export function createSegmentsApi(client) {
 				}),
 			);
 		},
+		counts(segmentIds, options = {}) {
+			if (!Array.isArray(segmentIds) || segmentIds.length === 0) {
+				throw new TypeError("segments.counts requires a non-empty segmentIds array");
+			}
+			return client.request(
+				requestOptions({
+					method: "POST",
+					path: "/segments/counts",
+					body: { segment_ids: segmentIds },
+					signal: options.signal,
+				}),
+			);
+		},
 	};
 }
