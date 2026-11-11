@@ -1,0 +1,159 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ComRaid, ComRaidError, FetchTransport } from "../src/index.js";
+
+test("rejects paths that would send credentials to another origin", async () => {
+	let calls = 0;
+	const transport = new FetchTransport({ apiKey: "secret", baseUrl: "https://api.example.test", fetch: async () => { calls++; } });
+	for (const path of ["//other.example/send", "/\\other.example/send"]) {
+		await assert.rejects(transport.request({ path }), /configured API origin/);
+	}
+	assert.equal(calls, 0);
+});
+
+test("timeout covers stalled response bodies", async () => {
+	const transport = new FetchTransport({
+		apiKey: "secret", baseUrl: "https://api.example.test", timeoutMs: 20, maxRetries: 0,
+		fetch: async (_url, { signal }) => new Response(new ReadableStream({
+			start(controller) {
+				signal.addEventListener("abort", () => controller.error(signal.reason), { once: true });
+			},
+		})),
+	});
+	await assert.rejects(transport.request({ path: "/slow" }), error => error.code === "TIMEOUT");
+});
+
+test("validates retry and timeout limits", () => {
+	for (const settings of [{ maxRetries: -1 }, { maxRetries: Infinity }, { timeoutMs: NaN }, { timeoutMs: 0 }]) {
+		assert.throws(() => new FetchTransport({ apiKey: "secret", baseUrl: "https://api.example.test", ...settings }), TypeError);
+	}
+});
+
+test("uses authentication, query values, and JSON bodies", async () => {
+	let captured;
+	const fetch = async (url, init) => {
+		captured = { url, init };
+		return new Response(JSON.stringify({ accepted: true }), {
+			status: 202,
+			headers: { "content-type": "application/json" },
+		});
+	};
+	const client = new ComRaid({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 0 });
+	const result = await client.request({ method: "POST", path: "/contract-defined-path", query: { dryRun: true }, body: { hello: "world" } });
+
+	assert.deepEqual(result, { accepted: true });
+	assert.equal(captured.url.toString(), "https://api.example.test/contract-defined-path?dryRun=true");
+	assert.equal(captured.init.headers.get("authorization"), "Bearer secret");
+	assert.equal(captured.init.body, JSON.stringify({ hello: "world" }));
+});
+
+test("retries idempotent reads", async () => {
+	let attempts = 0;
+	const fetch = async () => {
+		attempts += 1;
+		return attempts === 1
+			? new Response(JSON.stringify({ message: "busy" }), { status: 503, headers: { "content-type": "application/json", "retry-after": "0" } })
+			: new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+	};
+	const transport = new FetchTransport({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 1 });
+	assert.deepEqual(await transport.request({ path: "/health" }), { ok: true });
+	assert.equal(attempts, 2);
+});
+
+test("never retries 409 Conflict (idempotency_conflict is permanent)", async () => {
+	let attempts = 0;
+	const fetch = async () => {
+		attempts += 1;
+		return new Response(
+			JSON.stringify({ code: "idempotency_conflict", message: "Idempotency-Key already used with a different body" }),
+			{ status: 409, headers: { "content-type": "application/json", "x-request-id": "req-409" } },
+		);
+	};
+	const transport = new FetchTransport({
+		apiKey: "secret",
+		baseUrl: "https://api.example.test",
+		fetch,
+		maxRetries: 3,
+	});
+	await assert.rejects(
+		transport.request({ method: "PUT", path: "/contacts/user_a", body: { name: "Ada" }, idempotencyKey: "idem-1" }),
+		(error) =>
+			error instanceof ComRaidError &&
+			error.status === 409 &&
+			error.code === "idempotency_conflict" &&
+			error.retryable === false &&
+			error.requestId === "req-409",
+	);
+	assert.equal(attempts, 1);
+});
+
+test("defaults baseUrl to https://api.comraid.io", async () => {
+	let capturedUrl;
+	const fetch = async (url) => {
+		capturedUrl = url;
+		return new Response(JSON.stringify({ ok: true }), {
+			status: 200,
+			headers: { "content-type": "application/json" },
+		});
+	};
+	const transport = new FetchTransport({ apiKey: "secret", fetch, maxRetries: 0 });
+	assert.equal(transport.baseUrl, "https://api.comraid.io");
+	await transport.request({ path: "/healthz" });
+	assert.equal(capturedUrl.toString(), "https://api.comraid.io/healthz");
+
+	const client = new ComRaid({ apiKey: "secret", fetch, maxRetries: 0 });
+	await client.request({ path: "/readyz" });
+	assert.match(String(capturedUrl), /^https:\/\/api\.comraid\.io\/readyz/);
+});
+
+test("does not retry unsafe mutations without an idempotency key", async () => {
+	let attempts = 0;
+	const fetch = async () => {
+		attempts += 1;
+		return new Response(JSON.stringify({ code: "UNAVAILABLE", message: "try later" }), {
+			status: 503,
+			headers: { "content-type": "application/json", "x-request-id": "req-1" },
+		});
+	};
+	const client = new ComRaid({ apiKey: "secret", baseUrl: "https://api.example.test", fetch, maxRetries: 3 });
+	await assert.rejects(
+		client.request({ method: "POST", path: "/send", body: {} }),
+		error => error instanceof ComRaidError && error.code === "UNAVAILABLE" && error.requestId === "req-1",
+	);
+	assert.equal(attempts, 1);
+});
+
+test("supports an injected transport without API configuration", async () => {
+	const client = new ComRaid({ transport: { request: async options => ({ path: options.path }) } });
+	assert.deepEqual(await client.request({ path: "/custom" }), { path: "/custom" });
+	assert.match(client.createIdempotencyKey(), /^[0-9a-f-]{36}$/);
+});
+
+test("sends FormData and Blob bodies as multipart without JSON encoding", async () => {
+	const captures = [];
+	const fetch = async (_url, init) => {
+		captures.push(init);
+		return new Response(JSON.stringify({ ok: true }), {
+			status: 200,
+			headers: { "content-type": "application/json" },
+		});
+	};
+	const transport = new FetchTransport({
+		apiKey: "secret",
+		baseUrl: "https://api.example.test",
+		fetch,
+		maxRetries: 0,
+	});
+
+	const form = new FormData();
+	form.append("file", new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" }), "a.jpg");
+	await transport.request({ method: "POST", path: "/media", body: form });
+
+	assert.equal(captures[0].body, form);
+	assert.equal(captures[0].headers.get("content-type"), null);
+
+	const blob = new Blob(["x"], { type: "application/octet-stream" });
+	await transport.request({ method: "POST", path: "/raw", body: blob });
+	assert.equal(captures[1].body, blob);
+	assert.equal(captures[1].headers.get("content-type"), null);
+});

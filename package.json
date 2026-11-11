@@ -1,0 +1,55 @@
+{
+  "name": "@comraid/node",
+  "version": "0.1.0",
+  "description": "Official Node.js client foundation for the ComRaid API",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/write-version.mjs",
+    "prepack": "pnpm run build",
+    "test": "node --test",
+    "check": "pnpm run build && node --check src/index.js && node --check src/transport.js && node --check src/version.js && node --check src/errors.js && node --check src/push.js && node --check src/media.js && node --check src/campaigns.js && node --check src/contacts.js && node --check src/attributes.js && node --check src/segments.js && node --check src/request-options.js && node --check src/identity.js && pnpm test",
+    "pack:check": "pnpm pack --dry-run",
+    "publint": "publint",
+    "pack:dry-run": "pnpm run pack:check && pnpm run publint"
+  },
+  "keywords": [
+    "comraid",
+    "notifications",
+    "push-notifications"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/comraid-io/comraid-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/comraid-io/comraid-node/issues"
+  },
+  "homepage": "https://github.com/comraid-io/comraid-node#readme",
+  "author": "ComRaid <engineering@comraid.io> (https://github.com/comraid-io)",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "sideEffects": false,
+  "devDependencies": {
+    "publint": "^0.3.16"
+  },
+  "packageManager": "pnpm@12.14.0"
+}
