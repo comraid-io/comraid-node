@@ -103,10 +103,10 @@ const rules = {
   operator: "and",
   conditions: [{ field: "attr.plan", op: "eq", value: "pro" }],
 };
-const created = await comraid.segments.create({ name: "Pro users", rules });
+const created = await comraid.segments.create({ name: "Pro Contacts", rules });
 await comraid.segments.get(created.segment_id);
 await comraid.segments.update(created.segment_id, {
-  name: "Pro users (v2)",
+  name: "Pro Contacts (v2)",
   rules,
 });
 await comraid.segments.archive(created.segment_id);
@@ -250,7 +250,7 @@ Same optional fields as `send`, except targeting is `targeting` instead of `to`.
 | `input.content` | `PushContent` | yes | Push Content. |
 | … | | | Same optional fields as `push.send` (`ttl`, `collapse_key`, `send_at` / `send_at_local`, …). |
 
-**Returns:** `Promise<MessageAccepted>` with `message_id` and status `preparing` (or `scheduled`). ComRaid builds the audience in the background, so there is no `delivery_count` and no 10,000-Contact cap. Read counts with `push.get` once the status leaves `preparing`; an audience that matches nobody ends as `failed`.
+**Returns:** `Promise<MessageAccepted>` with `message_id` and status `preparing` (or `scheduled`). ComRaid builds recipients in the background, so there is no `delivery_count` and no 10,000-Contact cap. Read counts with `push.get` once the status leaves `preparing`; a Segment that matches nobody ends as `failed`.
 
 #### `comraid.push.multiSend(input)` → OpenAPI `createCampaign`
 
@@ -342,7 +342,7 @@ Draft helpers set `draft: true` / nest Content like other push methods. REST pat
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `input.content` | `PushContent` | yes | Title and body required for Drafts. |
-| `input.targeting` | `TargetingSpec` | no | Everyone or `segment_id` (audience may be empty). |
+| `input.targeting` | `TargetingSpec` | no | Everyone or `segment_id` (Segment may be empty). |
 | `input.idempotencyKey` | `string` | no | Idempotency key. |
 | `input.signal` | `AbortSignal` | no | Cancellation. |
 | … | | | Same optional Message fields as `push.broadcast` (`category`, `ttl`, …). |

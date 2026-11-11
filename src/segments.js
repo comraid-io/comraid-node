@@ -1,6 +1,10 @@
 import { encodePathSegment, requestOptions, requireNonEmptyString } from "./request-options.js";
 
-/** Segment resource methods — OpenAPI `/segments` CRUD + restore. */
+/**
+ * Segment resource methods — OpenAPI `/segments` CRUD + restore + counts.
+ * Built-in segment_id values use Glossary names: Everyone, New contacts,
+ * Recently active, Engaged, Dormant, Android contacts, iOS contacts.
+ */
 export function createSegmentsApi(client) {
 	return {
 		list(options = {}) {
