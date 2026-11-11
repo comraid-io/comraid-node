@@ -326,7 +326,7 @@ test("segments.list forwards include_archived", async () => {
 test("segments.create posts SegmentCreate", async () => {
 	const { client, calls } = clientWithCapture();
 	await client.segments.create({
-		name: "Pro users",
+		name: "Pro Contacts",
 		description: "Paid plan",
 		rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] },
 	});
@@ -335,7 +335,7 @@ test("segments.create posts SegmentCreate", async () => {
 		method: "POST",
 		path: "/segments",
 		body: {
-			name: "Pro users",
+			name: "Pro Contacts",
 			description: "Paid plan",
 			rules: { operator: "and", conditions: [{ field: "attr.plan", op: "eq", value: "pro" }] },
 		},

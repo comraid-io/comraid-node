@@ -94,9 +94,20 @@ export interface SegmentRules {
 
 /**
  * OpenAPI `TargetingSpec`. Exactly one of `everyone`, `segment_id`, or `rules`.
+ *
+ * `everyone` is Everyone (Contacts with at least one Active Endpoint who are not
+ * Opted out). Built-in `segment_id` values (`seg_sys_*`) use Glossary names:
+ * Everyone (`seg_sys_subscribed`), New contacts (`seg_sys_new`), Recently active
+ * (`seg_sys_active`), Engaged (`seg_sys_engaged`), Dormant (`seg_sys_dormant`),
+ * Android contacts (`seg_sys_android`), iOS contacts (`seg_sys_ios`).
  */
 export interface TargetingSpec {
+  /** Everyone — Active Endpoint on the Channel and not Opted out. */
   everyone?: boolean;
+  /**
+   * Saved Segment UUID or built-in `seg_sys_*` (Everyone, New contacts,
+   * Recently active, Engaged, Dormant, Android contacts, iOS contacts).
+   */
   segment_id?: string;
   rules?: SegmentRules;
 }
@@ -335,7 +346,11 @@ export interface SegmentUpdate {
   rules?: SegmentRules;
 }
 
-/** Segment list/detail shapes returned by public `/segments` routes. */
+/**
+ * Segment list/detail shapes returned by public `/segments` routes.
+ * Prefer Glossary names in product copy: Segment (not audience), Contact (not
+ * user), Communication preferences (not opted-out categories).
+ */
 export interface SegmentSummary {
   id?: string;
   segment_id: string;
